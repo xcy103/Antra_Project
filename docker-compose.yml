@@ -1,0 +1,29 @@
+# Local development infrastructure.
+# Phase 0: only PostgreSQL. More services (Kafka, config-server, ...) are added in later phases.
+#
+# Usage:
+#   docker compose up -d postgres
+#
+# Credentials come from a local .env file (see .env.example); the values below
+# are convenience defaults for local dev only and are NOT production secrets.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: bookstore-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bookstore}
+      POSTGRES_USER: ${POSTGRES_USER:-bookstore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bookstore}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bookstore} -d ${POSTGRES_DB:-bookstore}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
