@@ -1,0 +1,54 @@
+# Build output
+target/
+build/
+out/
+*.jar
+*.war
+!**/src/**/*.jar
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# IDE — IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# IDE — others
+.vscode/
+.settings/
+.project
+.classpath
+nbproject/private/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Secrets / local config — NEVER commit
+.env
+.env.local
+*.pem
+*.key
+*.p12
+*.jks
+**/application-local.yml
+**/application-secret.yml
+.aws/
+credentials
+
+# Testcontainers / docker local volumes
+.testcontainers/
+pgdata/
+kafka-data/
+
+# Node (AI-generated frontend, later phases)
+node_modules/
+dist/
+.next/
