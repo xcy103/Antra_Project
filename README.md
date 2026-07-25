@@ -55,8 +55,8 @@ that evolution.** Each phase is tagged (`phase-1`, `phase-2`, …).
 
 ## Status
 
-Phase 0 complete: Spring Boot monolith skeleton (`bookstore/`) boots and reports healthy; a
-single-PostgreSQL `docker-compose.yml` is in place. No business code yet.
+Phase 2 complete: the monolith persists Books/Authors to PostgreSQL via JPA + Flyway, with indexes,
+optimistic locking, and Testcontainers integration tests. See `docs/PROGRESS.md`.
 
 ## Local Development
 
@@ -78,6 +78,24 @@ curl localhost:8080/actuator/health   # -> {"status":"UP"}
 
 > Note: `docker compose up -d postgres` maps host port **5432**. If a local PostgreSQL is already
 > running there, stop it first or remap the host port in `docker-compose.yml`.
+
+### Running the tests (Testcontainers)
+
+The integration tests use [Testcontainers](https://testcontainers.com/), which needs a Docker engine
+that `docker-java` can talk to. On this project's dev machine, **Docker Desktop 4.83's API-proxy is
+incompatible with docker-java**, so tests run against **Colima**:
+
+```bash
+colima start                     # once per session; provides a plain dockerd
+```
+
+Then `mvn clean verify` works because:
+- `~/.testcontainers.properties` sets `docker.host` to Colima's socket (machine-local, not committed);
+- the Surefire config pins `api.version=1.41` (committed) — docker-java defaults to Docker API 1.32,
+  which modern engines (min 1.40) reject.
+
+On a standard Docker setup (e.g. CI / Linux), none of this is needed — plain `mvn clean verify` works.
+Full diagnosis in [`docs/BUGLOG.md`](docs/BUGLOG.md).
 
 ## Security Note
 

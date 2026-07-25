@@ -133,8 +133,9 @@ Run in this environment:
   `psql`. DB constraints verified directly: `uq_book_isbn`, `chk_book_stock_non_negative`,
   `fk_book_author` all reject bad rows. `EXPLAIN ANALYZE` captured above.
 
-Not run here (pending on the local machine):
-- The Testcontainers integration tests (`BookRepositoryTest`, `NPlusOneQueryTest`, and the
-  `@SpringBootTest` smoke test) — this sandbox blocks the Docker **API** for the Java client, so
-  Testcontainers cannot start a container (the Docker CLI works, but docker-java does not). The tests
-  are written and expected to pass; **`mvn clean verify` must be run on the local machine to confirm.**
+Confirmed on the local machine:
+- `mvn clean verify` → **BUILD SUCCESS, 18 tests** (via Colima; see `docs/BUGLOG.md` for why Docker
+  Desktop 4.83 needed replacing and the `api.version` pin). The Testcontainers tests
+  (`BookRepositoryTest` incl. the optimistic-lock case, `NPlusOneQueryTest`, and the `@SpringBootTest`
+  smoke test) all pass. The agent's own sandbox cannot run Testcontainers (it force-routes docker-java
+  to Docker Desktop), so those were verified on the local machine.
