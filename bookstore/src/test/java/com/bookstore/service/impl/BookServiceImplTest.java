@@ -2,9 +2,11 @@ package com.bookstore.service.impl;
 
 import com.bookstore.dto.BookRequestDto;
 import com.bookstore.dto.BookResponseDto;
+import com.bookstore.entity.Author;
 import com.bookstore.entity.Book;
 import com.bookstore.exception.DuplicateResourceException;
 import com.bookstore.exception.ResourceNotFoundException;
+import com.bookstore.repository.AuthorRepository;
 import com.bookstore.repository.BookRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,17 +31,29 @@ class BookServiceImplTest {
     @Mock
     private BookRepository bookRepository;
 
+    @Mock
+    private AuthorRepository authorRepository;
+
     @InjectMocks
     private BookServiceImpl bookService;
 
+    private final Author author = new Author(1L, "Robert C. Martin");
+
     private BookRequestDto sampleRequest() {
-        return new BookRequestDto("Clean Code", "978-0132350884", new BigDecimal("39.99"), 10);
+        return new BookRequestDto("Clean Code", "978-0132350884", new BigDecimal("39.99"), 10, 1L);
+    }
+
+    private Book sampleBook(Long id) {
+        Book book = new Book("Clean Code", "978-0132350884", new BigDecimal("39.99"), 10, author);
+        book.setId(id);
+        return book;
     }
 
     @Test
     void createBook_persistsAndReturnsResponse() {
         BookRequestDto request = sampleRequest();
         when(bookRepository.existsByIsbn(request.isbn())).thenReturn(false);
+        when(authorRepository.findById(1L)).thenReturn(Optional.of(author));
         when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> {
             Book book = invocation.getArgument(0);
             book.setId(1L);
@@ -50,9 +64,8 @@ class BookServiceImplTest {
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.title()).isEqualTo("Clean Code");
-        assertThat(result.isbn()).isEqualTo("978-0132350884");
-        assertThat(result.price()).isEqualByComparingTo("39.99");
-        assertThat(result.stock()).isEqualTo(10);
+        assertThat(result.authorId()).isEqualTo(1L);
+        assertThat(result.authorName()).isEqualTo("Robert C. Martin");
         verify(bookRepository).save(any(Book.class));
     }
 
@@ -69,19 +82,31 @@ class BookServiceImplTest {
     }
 
     @Test
+    void createBook_missingAuthor_throwsNotFound() {
+        BookRequestDto request = sampleRequest();
+        when(bookRepository.existsByIsbn(request.isbn())).thenReturn(false);
+        when(authorRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> bookService.createBook(request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Author");
+
+        verify(bookRepository, never()).save(any());
+    }
+
+    @Test
     void getBookById_existing_returnsResponse() {
-        Book book = new Book(5L, "DDD", "978-0321125217", new BigDecimal("54.99"), 3);
-        when(bookRepository.findById(5L)).thenReturn(Optional.of(book));
+        when(bookRepository.findByIdWithAuthor(5L)).thenReturn(Optional.of(sampleBook(5L)));
 
         BookResponseDto result = bookService.getBookById(5L);
 
         assertThat(result.id()).isEqualTo(5L);
-        assertThat(result.title()).isEqualTo("DDD");
+        assertThat(result.authorName()).isEqualTo("Robert C. Martin");
     }
 
     @Test
     void getBookById_missing_throwsNotFound() {
-        when(bookRepository.findById(99L)).thenReturn(Optional.empty());
+        when(bookRepository.findByIdWithAuthor(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> bookService.getBookById(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -90,10 +115,9 @@ class BookServiceImplTest {
 
     @Test
     void updateBook_missing_throwsNotFound() {
-        BookRequestDto request = sampleRequest();
-        when(bookRepository.findById(42L)).thenReturn(Optional.empty());
+        when(bookRepository.findByIdWithAuthor(42L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> bookService.updateBook(42L, request))
+        assertThatThrownBy(() -> bookService.updateBook(42L, sampleRequest()))
                 .isInstanceOf(ResourceNotFoundException.class);
 
         verify(bookRepository, never()).save(any());
@@ -101,9 +125,8 @@ class BookServiceImplTest {
 
     @Test
     void updateBook_changingToExistingIsbn_throwsDuplicate() {
-        Book existing = new Book(1L, "Old Title", "isbn-old", new BigDecimal("10.00"), 1);
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(existing));
-        BookRequestDto request = new BookRequestDto("New Title", "isbn-taken", new BigDecimal("12.00"), 2);
+        when(bookRepository.findByIdWithAuthor(1L)).thenReturn(Optional.of(sampleBook(1L)));
+        BookRequestDto request = new BookRequestDto("New", "isbn-taken", new BigDecimal("12.00"), 2, 1L);
         when(bookRepository.existsByIsbn("isbn-taken")).thenReturn(true);
 
         assertThatThrownBy(() -> bookService.updateBook(1L, request))
@@ -124,14 +147,11 @@ class BookServiceImplTest {
 
     @Test
     void getAllBooks_returnsMappedList() {
-        when(bookRepository.findAll()).thenReturn(List.of(
-                new Book(1L, "A", "isbn-a", new BigDecimal("10.00"), 1),
-                new Book(2L, "B", "isbn-b", new BigDecimal("20.00"), 2)
-        ));
+        when(bookRepository.findAllWithAuthor()).thenReturn(List.of(sampleBook(1L), sampleBook(2L)));
 
         List<BookResponseDto> result = bookService.getAllBooks();
 
         assertThat(result).hasSize(2);
-        assertThat(result).extracting(BookResponseDto::title).containsExactly("A", "B");
+        assertThat(result).allSatisfy(dto -> assertThat(dto.authorName()).isEqualTo("Robert C. Martin"));
     }
 }

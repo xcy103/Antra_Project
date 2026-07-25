@@ -1,5 +1,6 @@
 package com.bookstore;
 
+import com.bookstore.support.AbstractPostgresIT;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,11 +10,12 @@ import org.springframework.http.ResponseEntity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Phase 0 smoke tests: the Spring context must load and the app must report
- * itself healthy over HTTP. No business behavior is exercised yet.
+ * Smoke tests: the full application context must load (now including the JPA
+ * datasource, Flyway migrations and schema validation against a real PostgreSQL)
+ * and the app must report itself healthy over HTTP.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class BookstoreApplicationTests {
+class BookstoreApplicationTests extends AbstractPostgresIT {
 
     @Autowired
     private TestRestTemplate restTemplate;
