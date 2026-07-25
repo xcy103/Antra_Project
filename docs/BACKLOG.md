@@ -10,5 +10,6 @@
 | 2026-07-24 | Phase 9 | Lambda DLQ, S3 lifecycle cost optimization (challenge) | Do after the Phase 9 main flow passes |
 | 2026-07-24 | Phase 10 | HPA, EKS + IRSA design notes (challenge) | Do after the Phase 10 main flow passes |
 | 2026-07-24 | Phase 11 | Blue-green/canary releases + rollback, Prometheus/Grafana dashboards (challenge) | Do after the Phase 11 main flow passes |
+| 2026-07-24 | Phase 3 | `LoggingAspect` currently logs all service-method arguments; it must mask/skip sensitive ones (passwords, tokens) once auth data flows through the service layer | Address when Phase 3 introduces User/auth |
 
 > Confirmed: the user has a usable AWS account. Phase 9 goes with **real deployment**, not the LocalStack fallback.
