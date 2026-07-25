@@ -1,113 +1,117 @@
-# CLAUDE.md — 开发规范与边界
+# CLAUDE.md — Development Rules and Boundaries
 
-> 这个文件约束 AI agent 在本仓库的行为。**每次开工前先读这里和 `docs/01-ROADMAP.md`，确认当前阶段，只做当前阶段的事。**
+> This file constrains how the AI agent behaves in this repo. **Before starting any work, read this and `docs/01-ROADMAP.md` first, confirm the current phase, and do only what belongs to that phase.**
 
-## 项目
+## Language
 
-Bookstore 微服务 capstone。需求源文档：`docs/capstone-project.docx`，中文解读：`docs/00-项目解读.md`。
+**Everything committed to this repo is in English** — docs, filenames, code, comments, commit messages. The only exception is verbal progress reports back to the user, which may be in Chinese. No Chinese in any repo file.
 
-## 技术栈（固定，不得擅自更换）
+## Project
 
-- Java 17，Maven，Spring Boot 3.x
-- PostgreSQL（Docker 运行），Flyway 管理 schema
+Bookstore microservices capstone. Source requirement doc: `docs/capstone-project.docx`. Annotated walkthrough: `docs/00-project-overview.md`.
+
+## Tech Stack (fixed — do not swap without asking)
+
+- Java 17, Maven, Spring Boot 3.x
+- PostgreSQL (run in Docker), Flyway for schema management
 - JUnit 5 + Mockito + Testcontainers
-- 后续阶段：OpenFeign、Resilience4j、Spring Cloud Config、Spring Cloud Gateway、Kafka、AWS（S3/Lambda/DynamoDB/SNS）、Docker、Kubernetes、GitHub Actions
+- Later phases: OpenFeign, Resilience4j, Spring Cloud Config, Spring Cloud Gateway, Kafka, AWS (S3/Lambda/DynamoDB/SNS), Docker, Kubernetes, GitHub Actions
 
-## 铁律（Hard Rules）
+## Hard Rules
 
-### 1. 阶段边界
-- **只实现当前 Phase 的内容。** 不提前引入下一阶段的依赖、注解、目录或配置。
-  - 例：Phase 1 不准出现 Spring Security、Kafka、Feign 的任何代码或 pom 依赖。
-- 如果实现当前任务时"顺手"想加下阶段的东西 → **停下，记到 `docs/BACKLOG.md`，不写代码。**
-- 每个 Phase 完成后必须停下来等人工确认，不得自动进入下一 Phase。
+### 1. Phase boundaries
+- **Implement only the current Phase.** Do not pull in dependencies, annotations, directories, or config from the next phase early.
+  - e.g. Phase 1 must contain zero Spring Security, Kafka, or Feign code or pom dependencies.
+- If, while doing the current task, you're tempted to "quickly add" something from a later phase → **stop, record it in `docs/BACKLOG.md`, and write no code.**
+- After each Phase is done, stop and wait for manual sign-off. Do not auto-advance to the next Phase.
 
-### 2. 测试是完成的一部分，不是补充
-- **没有测试的功能视为未完成。** 不允许"先实现，测试后面补"。
-- 测试必须验证**真实行为**，不允许为了让测试变绿而写空断言、断言 `true`、mock 掉被测对象本身、或删改测试来迁就实现。
-- 每个 Phase 交付前必须能一条命令跑完并全绿：`mvn clean verify`
-- 测试要覆盖 **happy path + 至少一个失败/边界路径**（如：库存不足、资源不存在、参数校验失败、无权限）。
-- 修 bug 时：**先写一个能复现该 bug 的失败测试，再改代码让它通过。**
+### 2. Tests are part of "done", not an afterthought
+- **A feature without tests is not done.** "Implement now, add tests later" is not allowed.
+- Tests must verify **real behavior** — no empty assertions, no asserting `true`, no mocking out the class under test, no editing/deleting tests to accommodate the implementation just to make them green.
+- Before delivering each Phase, one command must run everything green: `mvn clean verify`.
+- Tests must cover the **happy path + at least one failure/edge path** (e.g. insufficient stock, resource not found, validation failure, no permission).
+- When fixing a bug: **first write a failing test that reproduces the bug, then change the code to make it pass.**
 
-### 2b. 构建验证在本机跑（重要）
-- Agent 的沙盒环境**没有 Maven，且 Maven 中央仓库被网络策略屏蔽**，无法下载依赖，因此**agent 跑不了 `mvn clean verify`**。
-- 所以流程是：**agent 写实现和测试 → 本人在 IntelliJ 或终端跑构建 → 把失败输出贴回来 → agent 修**。
-- Agent **不得**因为自己没法跑构建就宣称"应该能通过"。没跑过就是没验证，必须明说"待本机验证"。
-- 每个 Phase 的验收以**本机 `mvn clean verify` 的真实输出**为准。
+### 2b. Build verification runs on the local machine (important)
+- The agent's sandbox **has no Maven, and Maven Central is blocked by network policy**, so it cannot download dependencies — meaning **the agent cannot run `mvn clean verify`**.
+- So the workflow is: **agent writes implementation and tests → the user runs the build in IntelliJ or the terminal → pastes the failure output back → agent fixes it.**
+- The agent **must not** claim "it should pass" just because it can't run the build itself. Not run = not verified; it must explicitly say "pending local verification".
+- Each Phase's acceptance is judged by the **real output of `mvn clean verify` on the local machine.**
 
-### 3. 不许伪实现
-- 不写 `// TODO: implement` 就当交付；不写返回硬编码假数据的 service 方法。
-- 不因为"看起来能跑"就宣告完成 —— 每个 Phase 的 Definition of Done 必须逐条核对。
-- 无法完成的部分，明确说"没做/做不了"，写进 `docs/BACKLOG.md`，不要静默跳过。
+### 3. No fake implementations
+- No shipping `// TODO: implement` as if done; no service methods that return hardcoded fake data.
+- Don't declare done just because "it looks like it runs" — each Phase's Definition of Done must be checked off item by item.
+- For anything you can't finish, say clearly "not done / can't do it", write it into `docs/BACKLOG.md`, and don't silently skip it.
 
-### 4. Commit 纪律（这是评分项）
-- 小步提交，一个逻辑变更一个 commit，能体现按 Phase 演进。
-- 格式：`feat(book): add Book CRUD endpoints` / `test(book): add BookServiceImpl unit tests` / `fix(order): prevent negative stock`
-- **禁止**把一个 Phase 的所有改动压成一个大 commit。
-- 不提交 `.env`、密钥、`target/`、IDE 配置。
+### 4. Commit discipline (this is a grading item)
+- Small commits, one logical change per commit, so the Phase-by-Phase evolution is visible.
+- Format: `feat(book): add Book CRUD endpoints` / `test(book): add BookServiceImpl unit tests` / `fix(order): prevent negative stock`
+- **Do not** squash a whole Phase's changes into one big commit.
+- Do not commit `.env`, secrets, `target/`, or IDE config.
 
-### 5. 分层与依赖方向
+### 5. Layering and dependency direction
 ```
-controller → service(接口) → serviceImpl → repository → entity
+controller → service(interface) → serviceImpl → repository → entity
                     ↑
-                   dto（进出参，绝不把 entity 直接暴露给 controller）
+                   dto (in/out params; never expose entities directly to the controller)
 ```
-- Controller **不准**直接注入 Repository。
-- Entity **不准**出现在 Controller 的方法签名里，一律走 DTO。
-- 依赖注入一律用**构造器注入**，不用 `@Autowired` 字段注入。
-- 业务异常抛自定义异常，统一由 `@RestControllerAdvice` 转成 HTTP 状态码。
+- Controllers **must not** inject repositories directly.
+- Entities **must not** appear in controller method signatures — always go through DTOs.
+- Dependency injection is always **constructor injection**, never `@Autowired` field injection.
+- Business exceptions throw custom exceptions, mapped to HTTP status codes centrally by a `@RestControllerAdvice`.
 
-### 6. 数据库
-- Schema 变更**只能**通过 Flyway 迁移脚本（`V{n}__desc.sql`），不准依赖 `ddl-auto: update`（本地开发也用 `validate`）。
-- 已提交的迁移脚本**不可修改**，只能新增。
-- 跨服务**不建外键**（Database per Service）。`orders.user_id`、`order_item.book_id` 是裸 id。
-- 多步写操作必须 `@Transactional`。
+### 6. Database
+- Schema changes **only** through Flyway migration scripts (`V{n}__desc.sql`); do not rely on `ddl-auto: update` (use `validate` even in local dev).
+- Already-committed migration scripts **must not be modified**, only added to.
+- **No foreign keys across services** (Database per Service). `orders.user_id` and `order_item.book_id` are bare ids.
+- Multi-step writes must be `@Transactional`.
 
-### 7. 安全
-- 密码只存 BCrypt hash，任何地方不得出现明文密码。
-- 密钥/JWT secret/DB 密码走环境变量或配置服务器，**不准硬编码进 yml 提交到 Git**。
-- 日志里不准打印 token、密码、完整个人信息。
-- **这是公开仓库**，任何提交前都要确认没有夹带凭证。
-- AWS 凭证只走本机 `~/.aws/credentials` 或环境变量，代码里一律用 SDK 默认凭证链，**绝不出现 access key / secret key 字面量**。
-- 需要占位的地方写 `${ENV_VAR}`，并在 `.env.example` 里列出变量名（不列值）。
+### 7. Security
+- Passwords stored only as BCrypt hashes; no plaintext password anywhere.
+- Secrets/JWT secret/DB password go through environment variables or the config server — **never hardcoded into yml committed to Git**.
+- No logging of tokens, passwords, or full personal information.
+- **This is a public repo** — before any commit, confirm no credentials are smuggled in.
+- AWS credentials only via the local `~/.aws/credentials` or environment variables; code always uses the SDK default credential chain — **never any access key / secret key literal**.
+- Where a placeholder is needed, write `${ENV_VAR}` and list the variable name (not its value) in `.env.example`.
 
-### 8. Git 工作流
-- 默认分支 `main`。远程仓库是 **GitHub 公开仓库**。
-- Agent **只负责本地 commit，不执行 push**。推送由本人在 IntelliJ 或命令行完成。
-- 提交时机：**每完成一个可独立描述的 feature/fix/test 就提交一次**，不要攒到 Phase 结束才提交。
-- 每个 Phase 结束时额外打一个 tag：`phase-1`、`phase-2`……方便回溯演进过程。
-- commit message 用英文，遵循 `type(scope): summary`，type 取 `feat|fix|test|refactor|docs|chore|build|ci`。
+### 8. Git workflow
+- Default branch `main`. The remote is a **public GitHub repo**.
+- The agent **only makes local commits, does not push**. Pushing is done by the user in IntelliJ or the command line.
+- When to commit: **every time a self-describable feature/fix/test is complete, commit once** — don't pile up until the end of a Phase.
+- At the end of each Phase, additionally tag it: `phase-1`, `phase-2`, … for traceability of the evolution.
+- Commit messages in English, following `type(scope): summary`, type from `feat|fix|test|refactor|docs|chore|build|ci`.
 
-## 需要先问我的情况（不要自己决定）
+## When to ask me first (don't decide on your own)
 
-- 要偏离本文档写死的技术栈或版本
-- 要改动已经确定的 API 路径、角色权限、数据库表结构
-- 一个 Phase 的 Definition of Done 有做不到的项
-- 需要新增一个前面没规划过的模块或第三方依赖
-- 遇到需要真 AWS 账号/花钱的操作
+- Deviating from the tech stack or versions pinned in this doc
+- Changing already-decided API paths, role permissions, or database table structure
+- Any item in a Phase's Definition of Done you can't achieve
+- Adding a module or third-party dependency not previously planned
+- Anything requiring a real AWS account / that costs money
 
-## 每个 Phase 的交付检查清单
+## Per-Phase delivery checklist
 
-开发者/agent 在宣告某 Phase 完成前，逐条自查：
+Before declaring a Phase complete, the developer/agent self-checks each item:
 
-- [ ] `mvn clean verify` 全绿
-- [ ] 该 Phase 的 Definition of Done 每一条都能演示
-- [ ] 新增代码有对应测试，含至少一条失败路径
-- [ ] 没有引入下一阶段的依赖
-- [ ] commit 拆分合理，信息清晰
-- [ ] 更新了 `docs/PROGRESS.md`（做了什么、遗留什么、下一步）
-- [ ] 能口头解释这一步的技术选型理由（面试导向）
+- [ ] `mvn clean verify` all green
+- [ ] Every item in this Phase's Definition of Done can be demonstrated
+- [ ] New code has matching tests, including at least one failure path
+- [ ] No dependencies from the next phase introduced
+- [ ] Commits are reasonably split, with clear messages
+- [ ] `docs/PROGRESS.md` updated (what was done, what's left, next step)
+- [ ] Can verbally explain the technical choices for this step (interview-oriented)
 
-## 目录约定
+## Directory conventions
 
 ```
 Antra_Project/
-├── CLAUDE.md                  # 本文件
+├── CLAUDE.md                    # this file
 ├── docs/
-│   ├── capstone-project.docx  # 原始需求
-│   ├── 00-项目解读.md          # 需求中文解读
-│   ├── 01-ROADMAP.md          # 阶段计划（当前进度看这里）
-│   ├── 02-DESIGN.md           # 架构与设计决策
-│   ├── PROGRESS.md            # 进度日志
-│   └── BACKLOG.md             # 被推迟/未完成的事项
-└── bookstore/                 # Phase 1-4 单体；Phase 5 后拆为 bookstore-platform/
+│   ├── capstone-project.docx    # original requirement
+│   ├── 00-project-overview.md   # annotated requirement walkthrough
+│   ├── 01-ROADMAP.md            # phase plan (current progress lives here)
+│   ├── 02-DESIGN.md             # architecture and design decisions
+│   ├── PROGRESS.md              # progress log
+│   └── BACKLOG.md               # deferred / unfinished items
+└── bookstore/                   # Phase 1-4 monolith; split into bookstore-platform/ after Phase 5
 ```
