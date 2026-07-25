@@ -1,5 +1,11 @@
-# Developer profile: verbose logging and full health details for local debugging.
+# Developer profile: verbose logging, visible SQL, full health details.
 # Activate with: SPRING_PROFILES_ACTIVE=dev  (or -Dspring-boot.run.profiles=dev)
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
 management:
   endpoint:
     health:
@@ -8,3 +14,5 @@ management:
 logging:
   level:
     com.bookstore: DEBUG
+    # Show the SQL Hibernate emits — used to observe the N+1 problem and its fix.
+    org.hibernate.SQL: DEBUG

@@ -2,10 +2,25 @@ spring:
   application:
     name: bookstore
 
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:bookstore}
+    username: ${POSTGRES_USER:bookstore}
+    password: ${POSTGRES_PASSWORD:bookstore}
+
+  jpa:
+    # Schema is owned by Flyway; Hibernate only validates that entities match it.
+    hibernate:
+      ddl-auto: validate
+    # Force fetching decisions into the service layer instead of the view.
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
 server:
   port: 8080
 
-# Phase 1: only the health endpoint is exposed. More endpoints arrive in later phases.
+# Phase 2: only the health endpoint is exposed. More endpoints arrive in later phases.
 management:
   endpoints:
     web:
