@@ -1,10 +1,15 @@
-# 进度日志
+# Progress Log
 
-> 每完成一个 Phase 追加一条。格式：日期 / Phase / 做了什么 / 遗留什么 / 下一步。
+> Append one entry per completed Phase. Format: date / Phase / what was done / what's left / next step.
 
-## 2026-07-24 — Phase -1：规划
+## 2026-07-24 — Phase -1: Planning
 
-- 读完 `capstone-project.docx`，产出 `00-项目解读.md`、`CLAUDE.md`、`01-ROADMAP.md`
-- 技术栈定为 Java 17 + Maven + Spring Boot 3.x + Docker PostgreSQL
-- 遗留：`02-DESIGN.md` 待 Phase 1 开工时建立
-- 下一步：Phase 0 环境与仓库初始化（**等人工确认后开始**）
+- Finished reading `capstone-project.docx`; produced `00-project-overview.md`, `CLAUDE.md`, `01-ROADMAP.md`
+- Tech stack fixed as Java 17 + Maven + Spring Boot 3.x + Docker PostgreSQL
+- Left open: `02-DESIGN.md` to be created when Phase 1 starts
+- Next step: Phase 0 environment & repo bootstrap (**start after manual confirmation**)
+
+## 2026-07-24 — Housekeeping
+
+- Created the remote public GitHub repo and pushed the planning docs
+- Converted all repo content to English; from now on the repo is English-only (docs, code, comments, commits)
