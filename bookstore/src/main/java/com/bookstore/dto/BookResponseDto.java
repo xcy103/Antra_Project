@@ -3,14 +3,16 @@ package com.bookstore.dto;
 import java.math.BigDecimal;
 
 /**
- * Outbound representation of a book. Entities never leave the service layer;
- * controllers only ever see DTOs.
+ * Outbound representation of a book, including a flattened author reference.
+ * Entities never leave the service layer; controllers only ever see DTOs.
  */
 public record BookResponseDto(
         Long id,
         String title,
         String isbn,
         BigDecimal price,
-        Integer stock
+        Integer stock,
+        Long authorId,
+        String authorName
 ) {
 }

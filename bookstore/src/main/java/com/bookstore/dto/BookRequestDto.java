@@ -2,15 +2,14 @@ package com.bookstore.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 
 /**
  * Inbound payload for creating/updating a book. Validated at the controller
- * boundary via {@code @Valid}; violations are turned into 400 responses by
- * {@link com.bookstore.exception.GlobalExceptionHandler}.
+ * boundary via {@code @Valid}; violations become 400 responses.
  */
 public record BookRequestDto(
 
@@ -26,6 +25,10 @@ public record BookRequestDto(
 
         @NotNull(message = "stock must not be null")
         @PositiveOrZero(message = "stock must not be negative")
-        Integer stock
+        Integer stock,
+
+        @NotNull(message = "authorId must not be null")
+        @Positive(message = "authorId must be positive")
+        Long authorId
 ) {
 }
