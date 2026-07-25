@@ -1,28 +1,24 @@
 package com.bookstore.repository;
 
 import com.bookstore.entity.Book;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Persistence contract for books.
- *
- * <p>The method set intentionally mirrors Spring Data's {@code JpaRepository} so
- * that Phase 2 can simply make this interface {@code extends JpaRepository<Book, Long>}
- * (adding {@code existsByIsbn} as a derived query) without touching the service layer.
+ * Spring Data JPA repository for books. The fetch-join queries load the author in
+ * the same round-trip so mapping to a DTO with {@code open-in-view=false} never
+ * triggers a lazy load (and listing never causes an N+1 on the author).
  */
-public interface BookRepository {
-
-    List<Book> findAll();
-
-    Optional<Book> findById(Long id);
-
-    Book save(Book book);
-
-    void deleteById(Long id);
-
-    boolean existsById(Long id);
+public interface BookRepository extends JpaRepository<Book, Long> {
 
     boolean existsByIsbn(String isbn);
+
+    @Query("select b from Book b join fetch b.author")
+    List<Book> findAllWithAuthor();
+
+    @Query("select b from Book b join fetch b.author where b.id = :id")
+    Optional<Book> findByIdWithAuthor(Long id);
 }
