@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: bookstore
+
+server:
+  port: 8080
+
+# Phase 0: only the health endpoint is exposed so the app can report readiness.
+# More endpoints (info, metrics, probes) are added in later phases.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
