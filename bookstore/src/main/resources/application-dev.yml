@@ -1,0 +1,10 @@
+# Developer profile: verbose logging and full health details for local debugging.
+# Activate with: SPRING_PROFILES_ACTIVE=dev  (or -Dspring-boot.run.profiles=dev)
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.bookstore: DEBUG

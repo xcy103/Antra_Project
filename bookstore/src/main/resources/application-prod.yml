@@ -1,0 +1,11 @@
+# Production profile: quieter logs, no health details leaked to callers.
+# Activate with: SPRING_PROFILES_ACTIVE=prod
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: WARN
+    com.bookstore: INFO
