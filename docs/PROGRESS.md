@@ -18,7 +18,7 @@
 
 - Done: Spring Boot 3.4.1 monolith skeleton under `bookstore/` (web + actuator only); `application.yml` exposing the health endpoint; `docker-compose.yml` for a single PostgreSQL 16; `.env.example`
 - Tests: `BookstoreApplicationTests` — context loads + `/actuator/health` returns UP (real HTTP assertion, not an empty test)
-- DoD verified locally: `mvn clean verify` → BUILD SUCCESS (2 tests); `curl /actuator/health` → `{"status":"UP"}`
-- Left open: `docker compose up -d postgres` could not bind host port 5432 because a **native PostgreSQL is already running** on this machine (compose config is valid; image pulls and container creates). Needs a decision: stop the native PG, or remap the host port.
+- DoD verified locally (all three green): `mvn clean verify` → BUILD SUCCESS (2 tests); `curl /actuator/health` → `{"status":"UP"}`; `docker compose up -d postgres` → container healthy, `pg_isready` accepting connections on 5432
+- Environment decision: this project uses Docker for PostgreSQL only. The machine's native EDB PostgreSQL 17 (which had occupied 5432) was stopped so the Docker container can own the port; other native dev services (colima, kafka, mysql via brew) were already stopped.
 - No business code, entities, or tables (correct for Phase 0). No next-phase dependencies introduced.
 - Next step: Phase 1 (monolith skeleton — Book CRUD + AOP), **after manual confirmation**
