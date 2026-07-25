@@ -31,3 +31,13 @@
 - DoD verified locally: all 5 endpoints exercised via curl (201/200/204); 404/400/409 return structured JSON (400 includes per-field `fieldErrors`); AOP timing logs visible (incl. `✗` on failure). Controller depends only on the service interface (no repository); entities never appear in controller signatures; constructor injection throughout.
 - Deferred: sensitive-argument masking in `LoggingAspect` → BACKLOG (Phase 3). No Security/JPA/Flyway/Kafka/Feign/Gateway/Dockerfile introduced (correct for Phase 1).
 - Next step: Phase 2 (data layer — PostgreSQL + Flyway + Author + indexes + N+1 fix + optimistic lock), **after manual confirmation**
+
+## 2026-07-25 — Phase 2: Data layer (PostgreSQL + Flyway + JPA)
+
+- Done: switched to Docker PostgreSQL with `ddl-auto=validate`; `Book` is now a JPA entity with a LAZY `@ManyToOne` to the new `Author` entity, `@Version` optimistic locking, and `@CreationTimestamp`; Flyway `V1__init.sql` (tables, `uq_book_isbn`, `chk_book_stock_non_negative`, FK, `idx_book_author_id`, `idx_book_title`) + `V2__seed_authors.sql`; repositories now Spring Data JPA with fetch-join queries; service methods `@Transactional` (read-only for reads), author resolution with 404; `open-in-view=false`. DTOs carry author fields. Full design write-up in `docs/02-DESIGN.md`.
+- Repo evolution: in-memory `BookRepository` impl (+ its test) removed; `BookRepository extends JpaRepository` as planned in Phase 1 — service layer unchanged.
+- Tests: `BookServiceImplTest` (Mockito, 9) updated for JPA; new `BookRepositoryTest` (persist/read-back, unique, CHECK, **optimistic lock**) and `NPlusOneQueryTest` (asserts naive = authors+1, fetch-join = 1 query) via `@DataJpaTest` + Testcontainers; smoke test now boots against Testcontainers PostgreSQL.
+- Verified in agent sandbox: unit tests pass; app booted against live docker-compose PG → Flyway applied V1+V2, `validate` passed, CRUD via curl (201/200/204), 404 (unknown author), 409 (dup isbn), rows confirmed in psql; DB constraints (unique/CHECK/FK) reject bad rows; `EXPLAIN ANALYZE` shows `Index Scan using idx_book_title`; book list is a single JOIN query.
+- **NOT verified in sandbox (pending local `mvn clean verify`):** the Testcontainers tests — the agent's Bash sandbox blocks the Docker API for the Java client (docker-java), so Testcontainers can't start a container. CLI/`curl` to the socket work; docker-java gets a 400. Run `cd bookstore && mvn clean verify` in a normal terminal to confirm all green.
+- Boundary: no security/users, no order/payment tables, no `ddl-auto: update` fallback (correct for Phase 2).
+- Next step: Phase 3 (auth & security — User, register/login, BCrypt, JWT, role-based access), **after manual confirmation**
