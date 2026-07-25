@@ -72,19 +72,19 @@ class BookRepositoryTest extends AbstractPostgresIT {
     @Test
     void duplicateIsbn_violatesUniqueConstraint() {
         Author author = persistAuthor();
-        bookRepository.save(newBook("isbn-dup", 5, author));
-        bookRepository.save(newBook("isbn-dup", 3, author));
+        bookRepository.saveAndFlush(newBook("isbn-dup", 5, author));
 
-        assertThatThrownBy(() -> entityManager.flush())
+        // IDENTITY id generation makes save() insert immediately, so the unique
+        // violation surfaces on the second write, not on a later flush.
+        assertThatThrownBy(() -> bookRepository.saveAndFlush(newBook("isbn-dup", 3, author)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
     void negativeStock_violatesCheckConstraint() {
         Author author = persistAuthor();
-        bookRepository.save(newBook("isbn-neg", -1, author));
 
-        assertThatThrownBy(() -> entityManager.flush())
+        assertThatThrownBy(() -> bookRepository.saveAndFlush(newBook("isbn-neg", -1, author)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
