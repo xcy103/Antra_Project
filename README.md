@@ -55,11 +55,29 @@ that evolution.** Each phase is tagged (`phase-1`, `phase-2`, …).
 
 ## Status
 
-Planning complete. Phase 0 (environment and repository bootstrap) not yet started.
+Phase 0 complete: Spring Boot monolith skeleton (`bookstore/`) boots and reports healthy; a
+single-PostgreSQL `docker-compose.yml` is in place. No business code yet.
 
 ## Local Development
 
-Instructions will be added as the project takes shape (Phase 0).
+Prerequisites: JDK 17, Maven, Docker.
+
+```bash
+# 1. Local PostgreSQL (used from Phase 2 onward; Phase 0 app does not connect to it yet)
+cp .env.example .env          # then edit credentials if you like
+docker compose up -d postgres
+
+# 2. Build and test the monolith
+cd bookstore
+mvn clean verify
+
+# 3. Run it
+mvn spring-boot:run
+curl localhost:8080/actuator/health   # -> {"status":"UP"}
+```
+
+> Note: `docker compose up -d postgres` maps host port **5432**. If a local PostgreSQL is already
+> running there, stop it first or remap the host port in `docker-compose.yml`.
 
 ## Security Note
 
