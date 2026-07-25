@@ -48,7 +48,7 @@ that evolution.** Each phase is tagged (`phase-1`, `phase-2`, …).
 | File | What it is |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Development rules and hard boundaries for this repo |
-| [`docs/00-项目解读.md`](docs/00-项目解读.md) | Requirement walkthrough (Chinese) |
+| [`docs/00-project-overview.md`](docs/00-project-overview.md) | Annotated requirement walkthrough |
 | [`docs/01-ROADMAP.md`](docs/01-ROADMAP.md) | Phase-by-phase plan with a Definition of Done for each |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | Running progress log |
 | [`docs/BACKLOG.md`](docs/BACKLOG.md) | Deferred items and stretch goals |
