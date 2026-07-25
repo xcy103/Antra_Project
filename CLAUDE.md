@@ -28,6 +28,12 @@ Bookstore 微服务 capstone。需求源文档：`docs/capstone-project.docx`，
 - 测试要覆盖 **happy path + 至少一个失败/边界路径**（如：库存不足、资源不存在、参数校验失败、无权限）。
 - 修 bug 时：**先写一个能复现该 bug 的失败测试，再改代码让它通过。**
 
+### 2b. 构建验证在本机跑（重要）
+- Agent 的沙盒环境**没有 Maven，且 Maven 中央仓库被网络策略屏蔽**，无法下载依赖，因此**agent 跑不了 `mvn clean verify`**。
+- 所以流程是：**agent 写实现和测试 → 本人在 IntelliJ 或终端跑构建 → 把失败输出贴回来 → agent 修**。
+- Agent **不得**因为自己没法跑构建就宣称"应该能通过"。没跑过就是没验证，必须明说"待本机验证"。
+- 每个 Phase 的验收以**本机 `mvn clean verify` 的真实输出**为准。
+
 ### 3. 不许伪实现
 - 不写 `// TODO: implement` 就当交付；不写返回硬编码假数据的 service 方法。
 - 不因为"看起来能跑"就宣告完成 —— 每个 Phase 的 Definition of Done 必须逐条核对。
