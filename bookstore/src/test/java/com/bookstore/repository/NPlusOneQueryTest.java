@@ -35,6 +35,10 @@ class NPlusOneQueryTest extends AbstractPostgresIT {
     private EntityManager entityManager;
 
     private void seedAuthorsWithBooks(int authors, int booksPerAuthor) {
+        // Start from a clean slate: V2 seeds 3 reference authors that would skew the
+        // query counts. @DataJpaTest rolls back, so this only affects this transaction.
+        entityManager.createQuery("delete from Book").executeUpdate();
+        entityManager.createQuery("delete from Author").executeUpdate();
         for (int a = 0; a < authors; a++) {
             Author author = authorRepository.save(new Author("Author " + a));
             for (int b = 0; b < booksPerAuthor; b++) {
