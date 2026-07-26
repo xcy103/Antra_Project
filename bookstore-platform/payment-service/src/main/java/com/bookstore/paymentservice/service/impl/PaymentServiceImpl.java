@@ -1,5 +1,6 @@
 package com.bookstore.paymentservice.service.impl;
 
+import com.bookstore.common.event.PaymentCompletedEvent;
 import com.bookstore.common.exception.DuplicateResourceException;
 import com.bookstore.common.exception.ResourceNotFoundException;
 import com.bookstore.paymentservice.dto.PaymentRequest;
@@ -7,18 +8,25 @@ import com.bookstore.paymentservice.dto.PaymentResponse;
 import com.bookstore.paymentservice.entity.Payment;
 import com.bookstore.paymentservice.entity.PaymentStatus;
 import com.bookstore.paymentservice.exception.ForbiddenPaymentAccessException;
+import com.bookstore.paymentservice.messaging.PaymentEventPublisher;
 import com.bookstore.paymentservice.repository.PaymentRepository;
 import com.bookstore.paymentservice.service.PaymentService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.UUID;
+
 @Service
 public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final PaymentEventPublisher paymentEventPublisher;
 
-    public PaymentServiceImpl(PaymentRepository paymentRepository) {
+    public PaymentServiceImpl(PaymentRepository paymentRepository,
+                              PaymentEventPublisher paymentEventPublisher) {
         this.paymentRepository = paymentRepository;
+        this.paymentEventPublisher = paymentEventPublisher;
     }
 
     @Override
@@ -31,7 +39,12 @@ public class PaymentServiceImpl implements PaymentService {
         // Payment is simulated as successful. In Phase 7 a PaymentCompleted event is
         // published so order-service can mark the order PAID.
         Payment payment = new Payment(request.orderId(), owner, request.amount(), PaymentStatus.SUCCESS);
-        return PaymentResponse.from(paymentRepository.save(payment));
+        Payment saved = paymentRepository.save(payment);
+
+        paymentEventPublisher.publishPaymentCompleted(new PaymentCompletedEvent(
+                UUID.randomUUID().toString(), saved.getOrderId(), saved.getAmount(), Instant.now()));
+
+        return PaymentResponse.from(saved);
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.bookstore.paymentservice.integration;
 import com.bookstore.common.security.JwtUtil;
 import com.bookstore.common.security.Role;
 import com.bookstore.paymentservice.dto.PaymentRequest;
+import com.bookstore.paymentservice.messaging.PaymentEventPublisher;
 import com.bookstore.paymentservice.repository.PaymentRepository;
 import com.bookstore.paymentservice.support.AbstractPostgresIT;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -33,6 +35,11 @@ class PaymentIntegrationTest extends AbstractPostgresIT {
     private PaymentRepository paymentRepository;
     @Autowired
     private JwtUtil jwtUtil;
+
+    // No broker in this test; the Kafka round-trip is covered by the consumer
+    // services' Testcontainers tests. Mock the publisher so pay() doesn't block.
+    @MockitoBean
+    private PaymentEventPublisher paymentEventPublisher;
 
     @BeforeEach
     void clean() {

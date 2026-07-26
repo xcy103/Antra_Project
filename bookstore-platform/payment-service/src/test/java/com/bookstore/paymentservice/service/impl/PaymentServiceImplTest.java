@@ -7,6 +7,7 @@ import com.bookstore.paymentservice.dto.PaymentResponse;
 import com.bookstore.paymentservice.entity.Payment;
 import com.bookstore.paymentservice.entity.PaymentStatus;
 import com.bookstore.paymentservice.exception.ForbiddenPaymentAccessException;
+import com.bookstore.paymentservice.messaging.PaymentEventPublisher;
 import com.bookstore.paymentservice.repository.PaymentRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +30,8 @@ class PaymentServiceImplTest {
 
     @Mock
     private PaymentRepository paymentRepository;
+    @Mock
+    private PaymentEventPublisher paymentEventPublisher;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
