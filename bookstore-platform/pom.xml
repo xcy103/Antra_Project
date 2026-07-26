@@ -29,6 +29,7 @@
         <module>common</module>
         <module>user-service</module>
         <module>book-service</module>
+        <module>order-service</module>
     </modules>
 
     <dependencyManagement>

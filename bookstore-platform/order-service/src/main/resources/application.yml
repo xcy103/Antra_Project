@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: order-service
+
+  datasource:
+    url: ${ORDER_DB_URL:jdbc:postgresql://localhost:5432/orderdb}
+    username: ${ORDER_DB_USER:order_svc}
+    password: ${ORDER_DB_PASSWORD:order_svc}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
+  cloud:
+    openfeign:
+      # Wrap Feign calls in a circuit breaker so the fallback can degrade gracefully.
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          book-service:
+            connect-timeout: 2000
+            read-timeout: 2000
+
+# Where book-service lives (overridden per environment / in docker-compose).
+book-service:
+  url: ${BOOK_SERVICE_URL:http://localhost:8082}
+
+# Circuit breaker defaults (applied to all instances, incl. the book-service call).
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+
+jwt:
+  secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-0123456789abcdef}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+server:
+  port: ${SERVER_PORT:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    root: INFO
+    com.bookstore: INFO
