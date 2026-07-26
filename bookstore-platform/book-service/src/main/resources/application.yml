@@ -1,6 +1,8 @@
 spring:
   application:
     name: book-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
 
   datasource:
     url: ${BOOK_DB_URL:jdbc:postgresql://localhost:5432/bookdb}
