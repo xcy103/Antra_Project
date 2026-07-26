@@ -55,29 +55,38 @@ that evolution.** Each phase is tagged (`phase-1`, `phase-2`, …).
 
 ## Status
 
-Phase 2 complete: the monolith persists Books/Authors to PostgreSQL via JPA + Flyway, with indexes,
-optimistic locking, and Testcontainers integration tests. See `docs/PROGRESS.md`.
+Phase 5 complete: the monolith has been split into four microservices under
+[`bookstore-platform/`](bookstore-platform/) — **user**, **book**, **order**, **payment** — each with
+its own PostgreSQL database, plus a shared `common` library. order-service calls book-service over
+OpenFeign with a Resilience4j circuit breaker (graceful degradation when book-service is down). The
+Phase 1–4 monolith lives in history under the `phase-1`…`phase-4` tags. See `docs/PROGRESS.md` and the
+Phase 5 section of `docs/02-DESIGN.md`.
 
 ## Local Development
 
 Prerequisites: JDK 17, Maven, Docker.
 
 ```bash
-# 1. Local PostgreSQL (used from Phase 2 onward; Phase 0 app does not connect to it yet)
-cp .env.example .env          # then edit credentials if you like
+# 1. One PostgreSQL with a database per service (userdb/bookdb/orderdb/paymentdb)
+cd bookstore-platform
 docker compose up -d postgres
 
-# 2. Build and test the monolith
-cd bookstore
+# 2. Build and test the whole platform (all modules)
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 mvn clean verify
 
-# 3. Run it
-mvn spring-boot:run
-curl localhost:8080/actuator/health   # -> {"status":"UP"}
+# 3. Run the services (each in its own terminal), then hit them through their ports
+cd user-service    && mvn spring-boot:run   # :8081
+cd book-service    && mvn spring-boot:run   # :8082
+cd order-service   && mvn spring-boot:run   # :8083  (calls book-service)
+cd payment-service && mvn spring-boot:run   # :8084
+
+# Example flow: register + login on user-service, then place an order on order-service
+curl localhost:8081/actuator/health   # -> {"status":"UP"}
 ```
 
-> Note: `docker compose up -d postgres` maps host port **5432**. If a local PostgreSQL is already
-> running there, stop it first or remap the host port in `docker-compose.yml`.
+> A single API entry point (gateway) and running the services in Docker Compose come in Phases 8 and 10;
+> for now each service is reached on its own port.
 
 ### Running the tests (Testcontainers)
 

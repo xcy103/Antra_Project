@@ -193,3 +193,71 @@ Confirmed on the local machine:
 The ROADMAP sketched `GET /api/auth/me`, but the authoritative API list (`00-project-overview.md`)
 uses `GET /api/users/me` plus the admin `GET /api/users` / `/api/users/{id}`. Implemented the latter
 to match the final contract and reduce Phase 5 rework.
+
+---
+
+## Phase 5 — Microservices split
+
+### Topology
+
+The monolith became four independently-deployable Spring Boot services plus a shared `common`
+library, under `bookstore-platform/` (Maven multi-module):
+
+- **user-service** (8081) — auth; owns `userdb`. Issues JWTs.
+- **book-service** (8082) — catalog; owns `bookdb`. Validates JWTs (reads public, writes ADMIN).
+- **order-service** (8083) — orders; owns `orderdb`. Calls book-service.
+- **payment-service** (8084) — payments; owns `paymentdb`.
+- **common** — JWT filter/util, error handling, logging aspect. Each service `scanBasePackages="com.bookstore"`.
+
+**Database per Service.** Each service has its own database; there are **no cross-service foreign
+keys**. `order_item.book_id`, `orders.owner_username`, and `payment.order_id` are bare identifiers.
+Intra-service FKs (e.g. `order_item → orders`) are fine. To read another service's data, call its API.
+
+### Stateless JWT propagation
+
+user-service signs a token with the shared `JWT_SECRET`; every service validates it with the same
+secret via the common `JwtAuthenticationFilter` — no session, no shared session store, no per-request
+DB lookup (role comes from the token claim). order-service forwards the incoming `Authorization`
+header downstream via a Feign `RequestInterceptor`, so identity is preserved across the call chain.
+
+### Resilient service-to-service calls (order → book)
+
+order-service fetches price/stock from book-service with an OpenFeign client, wrapped in a
+Resilience4j circuit breaker with explicit connect/read timeouts (2s). The `BookClientFallback`
+distinguishes two failure modes:
+
+- book-service returns **404** (book genuinely missing) → `ResourceNotFoundException` → 404.
+- book-service is **down / slow / circuit open** → `CatalogUnavailableException` → **503**.
+
+**Acceptance:** with book-service unreachable, placing an order returns a fast 503 instead of hanging
+or cascading timeouts — verified automatically by `OrderResilienceIntegrationTest`.
+
+### Saga / eventual consistency (order + stock + payment)
+
+Placing and paying for an order spans three services with **no single ACID transaction**. Phase 5
+does the synchronous read-and-validate (Feign) and creates the order `PENDING`; the asynchronous,
+event-driven Saga below is designed here and implemented in **Phase 7 (Kafka)**.
+
+Choreographed Saga (happy path):
+
+1. **order-service**: validate items, create order `PENDING`, publish `OrderPlaced{orderId, items}`.
+2. **book-service**: consume `OrderPlaced` → reserve/decrement stock (optimistic lock). If short,
+   publish `StockRejected{orderId}`.
+3. **payment-service**: on customer payment, record it, publish `PaymentCompleted{orderId}`.
+4. **order-service**: consume `PaymentCompleted` → order `PAID`.
+
+Compensation (failure paths):
+
+- `StockRejected` → order-service marks the order `CANCELLED` (nothing to refund yet).
+- Payment fails / times out → order-service marks the order `CANCELLED` and publishes
+  `OrderCancelled`; book-service consumes it and **releases the reserved stock** (increments back).
+
+Guarantees: consumers must be **idempotent** (Kafka is at-least-once), messages keyed by `orderId`
+for per-order ordering. This keeps the system **eventually consistent**: an order is never `PAID`
+without stock reserved, and stock is never held for a cancelled order.
+
+### Local run
+
+`bookstore-platform/docker-compose.yml` starts one PostgreSQL with the four per-service databases
+(`docker/init-databases.sql`). Services run via `mvn spring-boot:run` (each has its own port and DB
+defaults). Containerizing the services into the compose file is Phase 10.

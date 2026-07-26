@@ -64,3 +64,15 @@
 - Verified in sandbox: **38 non-Docker tests green** (`@WebMvcTest` + all Mockito + `JwtUtilTest`). The `@DataJpaTest`/`@SpringBootTest` (Testcontainers) classes and JaCoCo run in the full `mvn clean verify` — **pending local run** (agent sandbox can't run Testcontainers; use Colima per BUGLOG).
 - Valuable gotcha recorded in `docs/BUGLOG.md`: `@AutoConfigureMockMvc(addFilters=false)` still instantiates filter beans, so `JwtAuthenticationFilter`'s `JwtUtil` dependency had to be mocked in the slice.
 - Next step: Phase 5 (split into microservices), **after manual confirmation**
+
+## 2026-07-26 — Phase 5: Split into microservices
+
+- Monolith → four services + a shared `common` library under `bookstore-platform/` (Maven multi-module, parent aggregator): **user-service** (8081), **book-service** (8082), **order-service** (8083), **payment-service** (8084). Structural choices confirmed with the user: multi-module + common; replace the monolith (its history stays in the `phase-1`…`phase-4` tags).
+- **Database per Service**: each service owns its own database; no cross-service FKs (`orders.owner_username`, `order_item.book_id`, `payment.order_id` are bare ids). `docker-compose.yml` starts one PostgreSQL with the four databases via `docker/init-databases.sql`.
+- **JWT propagation**: user-service issues tokens with the shared `JWT_SECRET`; every service validates them via the common `JwtAuthenticationFilter` (stateless, role from the claim). order-service forwards the `Authorization` header downstream via a Feign `RequestInterceptor`.
+- **Resilient order → book**: OpenFeign client + Resilience4j circuit breaker with explicit 2s timeouts and a fallback that distinguishes 404 (book missing) from service-down (→ 503). **Acceptance automated** by `OrderResilienceIntegrationTest`: with book-service unreachable, placing an order returns a fast 503 instead of hanging.
+- **Saga / eventual consistency** (order + stock + payment) designed in `docs/02-DESIGN.md`; the async event-driven implementation + stock mutation/compensation is Phase 7 (Kafka). Phase 5 does the synchronous validate + create `PENDING`.
+- Tests per service (unit + `@WebMvcTest` where relevant + `@DataJpaTest` + `@SpringBootTest` via Testcontainers). Sandbox-verified the non-Docker tests (compile + unit/web across all services); full Testcontainers suite pending the user's `mvn clean verify` at `bookstore-platform/`.
+- Monolith `bookstore/` and its root `docker-compose.yml`/`.env.example` removed.
+- Boundary: no Kafka (Phase 7), no Gateway (Phase 8), no Config Server (Phase 6); services don't share a DB.
+- Next step: Phase 6 (Spring Cloud Config), **after manual confirmation**
