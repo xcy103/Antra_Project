@@ -139,3 +139,57 @@ Confirmed on the local machine:
   (`BookRepositoryTest` incl. the optimistic-lock case, `NPlusOneQueryTest`, and the `@SpringBootTest`
   smoke test) all pass. The agent's own sandbox cannot run Testcontainers (it force-routes docker-java
   to Docker Desktop), so those were verified on the local machine.
+
+---
+
+## Phase 3 — Authentication & authorization
+
+### Model & roles
+
+- `User` (table `users`): `username` (UQ), `email` (UQ), `password_hash`, `role`, `created_at`.
+  Only the **BCrypt hash** is stored — never plaintext. `role` is `USER | ADMIN` (DB CHECK +
+  `@Enumerated(STRING)`), surfaced to Spring Security as authority `ROLE_USER` / `ROLE_ADMIN`.
+- Self-registration always creates a `USER`; ADMINs are provisioned out of band (no public path to
+  self-elevate). Flyway `V3__users.sql` owns the schema.
+
+### Stateless JWT
+
+- Login authenticates via the `AuthenticationManager` (which uses `CustomUserDetailsService` +
+  `BCryptPasswordEncoder`), then `JwtUtil` issues an HS256/HS384-signed JWT with `sub=username` and a
+  `role` claim, plus `iat` / `exp`.
+- Every request runs through `JwtAuthenticationFilter` (a `OncePerRequestFilter` before Spring's
+  username/password filter): it reads the `Bearer` token, **verifies the signature and expiry**, and
+  builds the `Authentication` straight from the token's claims — **no session, no per-request DB
+  lookup**. `SessionCreationPolicy.STATELESS`.
+- **How the server validates a token (interview answer):** recompute the HMAC over `header.payload`
+  with the server's secret key and compare it to the token's signature (rejects tampering/forgery);
+  check `exp` against now (rejects expired); then trust `sub`/`role`. jjwt throws
+  `ExpiredJwtException` / signature exceptions, which the filter catches → the request stays
+  unauthenticated → 401.
+
+### Authorization rules (SecurityConfig)
+
+| Endpoint | Access |
+|---|---|
+| `/api/auth/**`, `GET /api/books/**`, `/actuator/health` | PUBLIC |
+| `POST/PUT/DELETE /api/books/**` | ADMIN |
+| `GET /api/users/me` | any authenticated user |
+| `GET /api/users`, `GET /api/users/{id}` | ADMIN |
+
+401 (unauthenticated) and 403 (authenticated but wrong role) return the same structured
+`ErrorResponse` JSON as the rest of the API, via a custom `AuthenticationEntryPoint` and
+`AccessDeniedHandler` (these fire inside the filter chain, before the `@RestControllerAdvice`).
+
+### Secrets & logging
+
+- The JWT secret and TTL come from the environment (`JWT_SECRET`, `JWT_EXPIRATION_MS`); the yml only
+  holds a clearly-labelled dev default. Nothing secret is committed.
+- `RegisterRequest`/`LoginRequest` override `toString()` to redact the password, so the AOP logging
+  aspect (which logs service-method args) never records credentials; it logs no return values, so
+  issued JWTs aren't logged either.
+
+### API-path note
+
+The ROADMAP sketched `GET /api/auth/me`, but the authoritative API list (`00-project-overview.md`)
+uses `GET /api/users/me` plus the admin `GET /api/users` / `/api/users/{id}`. Implemented the latter
+to match the final contract and reduce Phase 5 rework.

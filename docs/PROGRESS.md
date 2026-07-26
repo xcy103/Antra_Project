@@ -41,3 +41,13 @@
 - Verified on the local machine: `mvn clean verify` → **BUILD SUCCESS, 18 tests** (all Testcontainers tests included). Getting there needed a Docker-tooling fix: Docker Desktop 4.83's API-proxy rejects docker-java, and docker-java defaults to Docker API 1.32 while the local engine requires ≥1.40. Resolution: run tests against **Colima** (`~/.testcontainers.properties` → Colima socket) with `api.version=1.41` pinned in the Surefire config. Two real test bugs were fixed along the way (IDENTITY eager-insert assertion target; N+1 test isolation from seed data). Full STAR write-up in `docs/BUGLOG.md`.
 - Boundary: no security/users, no order/payment tables, no `ddl-auto: update` fallback (correct for Phase 2).
 - Next step: Phase 3 (auth & security — User, register/login, BCrypt, JWT, role-based access), **after manual confirmation**
+
+## 2026-07-25 — Phase 3: Authentication & authorization
+
+- Done: `User` entity + `Role` enum + Flyway `V3__users.sql`; register/login (`AuthController`) and `GET /api/users/me` + admin `GET /api/users` / `/api/users/{id}` (`UserController`); BCrypt (`PasswordEncoderConfig`); `JwtUtil` (issue/verify, expiry), `JwtAuthenticationFilter`, `CustomUserDetailsService`; stateless `SecurityConfig` (catalog reads + auth public, catalog writes + admin-user endpoints ADMIN); structured 401/403 via custom entry-point/handler; JWT secret & TTL from env. Design write-up in `docs/02-DESIGN.md`.
+- Security hardening: `RegisterRequest`/`LoginRequest` redact the password in `toString()` so the AOP aspect never logs credentials (closes the Phase-3 BACKLOG item). Bad login → 401 without revealing which field was wrong.
+- API decision: used `/api/users/me` + `/api/users` (per the authoritative API list) rather than the ROADMAP's `/api/auth/me`.
+- Tests: `JwtUtilTest` (round-trip, expired rejected, wrong-secret rejected), `AuthServiceImplTest` (Mockito: hashing, duplicate username/email → 409, login issues token), `SecurityIntegrationTest` (Testcontainers: register→login→me, 401 no token, 403 USER-on-ADMIN, 200 ADMIN-on-ADMIN, expired → 401, bad creds → 401, password stored as `$2` hash).
+- Verified in sandbox: 16 unit tests pass (`mvn test` for the non-Docker classes); full app run against live PostgreSQL demonstrated register/login/me + 401/403 on protected/admin/book-write endpoints + bad-creds 401 + BCrypt hash in DB. **Testcontainers `SecurityIntegrationTest` pending local `mvn clean verify`** (agent sandbox can't run Testcontainers; now solvable via Colima — see BUGLOG).
+- Boundary: no OAuth2 (BACKLOG), no Kafka/Feign/Gateway; JWT secret not hardcoded.
+- Next step: Phase 4 (testing suite — `@WebMvcTest`, `@DataJpaTest`, end-to-end integration, JaCoCo), **after manual confirmation**
