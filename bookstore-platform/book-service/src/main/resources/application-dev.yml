@@ -1,0 +1,16 @@
+# Developer profile: verbose logging, visible SQL, full health details.
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.bookstore: DEBUG
+    org.hibernate.SQL: DEBUG
