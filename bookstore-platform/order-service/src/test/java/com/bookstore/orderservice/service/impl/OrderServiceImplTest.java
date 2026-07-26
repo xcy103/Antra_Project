@@ -12,6 +12,7 @@ import com.bookstore.orderservice.exception.CatalogUnavailableException;
 import com.bookstore.orderservice.exception.ForbiddenOrderAccessException;
 import com.bookstore.orderservice.exception.InsufficientStockException;
 import com.bookstore.orderservice.exception.OrderStateException;
+import com.bookstore.orderservice.messaging.OrderEventPublisher;
 import com.bookstore.orderservice.repository.OrderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,8 @@ class OrderServiceImplTest {
     private OrderRepository orderRepository;
     @Mock
     private BookClient bookClient;
+    @Mock
+    private OrderEventPublisher orderEventPublisher;
 
     @InjectMocks
     private OrderServiceImpl orderService;

@@ -1,9 +1,11 @@
 package com.bookstore.orderservice.service.impl;
 
+import com.bookstore.common.event.OrderPlacedEvent;
 import com.bookstore.common.exception.ResourceNotFoundException;
 import com.bookstore.orderservice.client.BookClient;
 import com.bookstore.orderservice.client.BookDto;
 import com.bookstore.orderservice.dto.OrderItemRequest;
+import com.bookstore.orderservice.messaging.OrderEventPublisher;
 import com.bookstore.orderservice.dto.OrderResponse;
 import com.bookstore.orderservice.dto.PlaceOrderRequest;
 import com.bookstore.orderservice.entity.Order;
@@ -18,17 +20,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final BookClient bookClient;
+    private final OrderEventPublisher orderEventPublisher;
 
-    public OrderServiceImpl(OrderRepository orderRepository, BookClient bookClient) {
+    public OrderServiceImpl(OrderRepository orderRepository, BookClient bookClient,
+                            OrderEventPublisher orderEventPublisher) {
         this.orderRepository = orderRepository;
         this.bookClient = bookClient;
+        this.orderEventPublisher = orderEventPublisher;
     }
 
     @Override
@@ -51,7 +58,12 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setTotalPrice(total);
-        return OrderResponse.from(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        orderEventPublisher.publishOrderPlaced(new OrderPlacedEvent(
+                UUID.randomUUID().toString(), saved.getId(), owner, saved.getTotalPrice(), Instant.now()));
+
+        return OrderResponse.from(saved);
     }
 
     @Override
