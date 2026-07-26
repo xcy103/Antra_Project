@@ -9,6 +9,31 @@ mismatches — those aren't worth an entry.
 
 ---
 
+## 2026-07-26 — Colima can't bind-mount its docker socket into Ryuk (Phase 5/6)
+
+**Situation.** After the platform grew to several Testcontainers-using modules, `mvn clean verify`
+failed at container startup for every integration test:
+`Ryuk … Status 500: error while creating mount source path
+'/Users/…/.colima/default/docker.sock': … operation not supported`. All non-Docker tests passed.
+
+**Task.** Get Testcontainers working again across all service modules without a code change (the app
+code was correct — only the test infra was failing).
+
+**Action.** Testcontainers starts **Ryuk**, a small reaper container, and **bind-mounts the Docker
+socket into it** so Ryuk can clean up leftover containers. On Colima the daemon runs in a Linux VM and
+the host socket path `~/.colima/default/docker.sock` is not a mountable source inside that VM
+("operation not supported") — so Ryuk can't start, and every Testcontainers test aborts. (This is
+Colima-specific; on Docker Desktop / CI Linux the socket mounts fine.) Disabled Ryuk with
+`TESTCONTAINERS_RYUK_DISABLED=true`; Testcontainers then falls back to a JVM shutdown hook to stop
+containers — fine for local dev.
+
+**Result.** `TESTCONTAINERS_RYUK_DISABLED=true mvn clean verify` → **BUILD SUCCESS, all 7 modules**.
+This is a **local-machine** setting (not committed): on CI/Linux Ryuk works normally. Documented in
+`README.md`. Lesson: Ryuk needs to bind-mount the docker socket; with a VM-based engine whose socket
+isn't a shareable host path, disable Ryuk and let the JVM shutdown hook do the cleanup.
+
+---
+
 ## 2026-07-25 — `@WebMvcTest(addFilters=false)` still creates filter beans (Phase 4)
 
 **Situation.** The new `@WebMvcTest` controller tests all failed to even load the context:

@@ -103,6 +103,13 @@ Then `mvn clean verify` works because:
 - the Surefire config pins `api.version=1.41` (committed) — docker-java defaults to Docker API 1.32,
   which modern engines (min 1.40) reject.
 
+Colima also can't bind-mount its docker socket into Testcontainers' Ryuk reaper, so disable Ryuk when
+running the tests (the JVM shutdown hook cleans up containers instead):
+
+```bash
+TESTCONTAINERS_RYUK_DISABLED=true mvn clean verify
+```
+
 On a standard Docker setup (e.g. CI / Linux), none of this is needed — plain `mvn clean verify` works.
 Full diagnosis in [`docs/BUGLOG.md`](docs/BUGLOG.md).
 
