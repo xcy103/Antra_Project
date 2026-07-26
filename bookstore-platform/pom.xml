@@ -27,6 +27,7 @@
 
     <modules>
         <module>common</module>
+        <module>config-server</module>
         <module>user-service</module>
         <module>book-service</module>
         <module>order-service</module>

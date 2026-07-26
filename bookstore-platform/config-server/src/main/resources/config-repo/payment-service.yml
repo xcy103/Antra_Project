@@ -1,0 +1,12 @@
+# payment-service configuration served by config-server.
+server:
+  port: ${SERVER_PORT:8084}
+
+spring:
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/paymentdb}
+    username: ${PAYMENT_DB_USER:payment_svc}
+    password: ${PAYMENT_DB_PASSWORD:payment_svc}
+
+bookstore:
+  config-source: config-server (payment-service.yml)

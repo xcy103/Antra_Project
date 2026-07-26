@@ -1,0 +1,31 @@
+# Shared configuration for ALL services (config-server serves this as the default).
+# This is the config that was previously duplicated in every service's local yml.
+# Secrets stay as ${ENV} placeholders — never plaintext in the config repo.
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-0123456789abcdef}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: INFO
+    com.bookstore: INFO
+
+# Marker proving a service loaded config from the config-server (visible via
+# /actuator/env). Only defined here, not in any service's local fallback yml.
+bookstore:
+  config-source: config-server (shared application.yml)

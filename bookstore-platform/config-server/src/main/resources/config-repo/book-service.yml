@@ -1,0 +1,12 @@
+# book-service configuration served by config-server.
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  datasource:
+    url: ${BOOK_DB_URL:jdbc:postgresql://localhost:5432/bookdb}
+    username: ${BOOK_DB_USER:book_svc}
+    password: ${BOOK_DB_PASSWORD:book_svc}
+
+bookstore:
+  config-source: config-server (book-service.yml)

@@ -1,0 +1,12 @@
+# user-service configuration served by config-server.
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  datasource:
+    url: ${USER_DB_URL:jdbc:postgresql://localhost:5432/userdb}
+    username: ${USER_DB_USER:user_svc}
+    password: ${USER_DB_PASSWORD:user_svc}
+
+bookstore:
+  config-source: config-server (user-service.yml)
