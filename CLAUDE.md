@@ -99,6 +99,7 @@ Before declaring a Phase complete, the developer/agent self-checks each item:
 - [ ] No dependencies from the next phase introduced
 - [ ] Commits are reasonably split, with clear messages
 - [ ] `docs/PROGRESS.md` updated (what was done, what's left, next step)
+- [ ] Technically valuable problems from this phase recorded in `docs/BUGLOG.md` (STAR format) — substantive, explainable bugs only; skip trivial config typos and dependency-version mismatches
 - [ ] Can verbally explain the technical choices for this step (interview-oriented)
 
 ## Directory conventions

@@ -3,6 +3,56 @@
 Recorded in the STAR format (Situation / Task / Action / Result). Newest first.
 Interview-oriented: each entry should be explainable end-to-end.
 
+**What goes here:** technically valuable problems that needed real analysis and have
+explainable depth. **What to skip:** trivial config typos and dependency-version
+mismatches — those aren't worth an entry.
+
+---
+
+## 2026-07-25 — Shared Testcontainers container + Spring context caching → 30s health-check hang (Phase 3)
+
+**Situation.** After Phase 3 added a 4th test class using the Testcontainers base, `mvn clean verify`
+failed on one assertion: `BookstoreApplicationTests.healthEndpointReportsUp`. The log showed the DB
+health contributor took **30017ms** (Hikari's default connection timeout) and `/actuator/health`
+returned non-2xx. `contextLoads` in the same class passed; only the health test failed.
+
+**Task.** Make the full suite green without weakening tests, and understand why adding one class
+broke a previously-passing test.
+
+**Action.** The base class started PostgreSQL via a `static` `@Container` field and was inherited by
+several test classes. `@Container` manages a **per-class** lifecycle: it stops the container in each
+class's `afterAll`. But the container was a single shared static instance, and Spring **caches and
+reuses** application contexts across `@SpringBootTest` classes with identical config. So one class's
+`afterAll` stopped the shared container while a reused context still pointed at it — `contextLoads`
+passed (cached context, no DB call), but the health endpoint's real `SELECT` hit the dead container
+and blocked until Hikari's 30s timeout. The tell was that it only broke once enough classes ran to
+force the stop-then-reuse ordering.
+
+**Result.** Switched to the Testcontainers **singleton-container** pattern: start the container once
+per JVM in a `static {}` initializer, never stop it per-class (Ryuk reaps it at JVM exit), and drop
+`@Testcontainers`/`@Container`. One always-running container backs every cached context. Suite green
+(32 tests). Lesson: a shared static container and Spring's context cache must agree on lifecycle —
+`@Container`'s per-class stop/start does not.
+
+---
+
+## 2026-07-25 — `GenerationType.IDENTITY` makes constraint violations surface at `save()`, not `flush()` (Phase 2)
+
+**Situation.** The repository tests for the unique-ISBN and `stock >= 0` constraints asserted the
+`DataIntegrityViolationException` on a later `entityManager.flush()`, but the exception was thrown
+earlier and the tests failed.
+
+**Task.** Assert the DB constraint violations at the point they actually occur.
+
+**Action.** With `GenerationType.IDENTITY`, Hibernate cannot batch inserts — it must execute the
+`INSERT` immediately on `save()`/`persist()` to obtain the DB-generated id. So a unique/check
+violation fires during `save()`, not at a deferred `flush()`. (This is a real semantic difference
+from `SEQUENCE`/`TABLE` generators, where inserts can be deferred until flush.)
+
+**Result.** Asserted the violation on `saveAndFlush(...)` (the write that triggers the immediate
+INSERT). Tests correctly verify the DB constraints. Lesson: id-generation strategy changes *when*
+writes hit the database, which changes where exceptions surface in a test.
+
 ---
 
 ## 2026-07-25 — Testcontainers can't reach Docker (`mvn clean verify` fails)
