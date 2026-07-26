@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: user-service
+
+  datasource:
+    url: ${USER_DB_URL:jdbc:postgresql://localhost:5432/userdb}
+    username: ${USER_DB_USER:user_svc}
+    password: ${USER_DB_PASSWORD:user_svc}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
+# Shared JWT secret (same value in every service). Env-supplied in real deploys.
+jwt:
+  secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-0123456789abcdef}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    root: INFO
+    com.bookstore: INFO
