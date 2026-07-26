@@ -1,0 +1,10 @@
+# Production profile: quieter logs, no health details leaked.
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: WARN
+    com.bookstore: INFO
