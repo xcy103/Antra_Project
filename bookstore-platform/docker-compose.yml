@@ -1,0 +1,26 @@
+# Local infrastructure for the microservices platform.
+#
+# Phase 5 brings up PostgreSQL with one database per service (Database per
+# Service). The services themselves are run with `mvn spring-boot:run` for now;
+# containerizing them into this compose file is Phase 10.
+services:
+  postgres:
+    image: postgres:16
+    container_name: bookstore-platform-postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERPASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

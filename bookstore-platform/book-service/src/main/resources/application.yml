@@ -4,8 +4,8 @@ spring:
 
   datasource:
     url: ${BOOK_DB_URL:jdbc:postgresql://localhost:5432/bookdb}
-    username: ${BOOK_DB_USER:book}
-    password: ${BOOK_DB_PASSWORD:book}
+    username: ${BOOK_DB_USER:book_svc}
+    password: ${BOOK_DB_PASSWORD:book_svc}
 
   jpa:
     hibernate:
