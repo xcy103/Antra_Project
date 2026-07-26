@@ -9,6 +9,26 @@ mismatches — those aren't worth an entry.
 
 ---
 
+## 2026-07-25 — `@WebMvcTest(addFilters=false)` still creates filter beans (Phase 4)
+
+**Situation.** The new `@WebMvcTest` controller tests all failed to even load the context:
+`UnsatisfiedDependencyException: Error creating bean 'jwtAuthenticationFilter' ... No qualifying bean
+of type 'com.bookstore.security.JwtUtil'`.
+
+**Task.** Get the web-slice tests to load, while keeping them focused on controller logic (mapping,
+validation, error status) rather than security.
+
+**Action.** `@WebMvcTest` narrows the context, but it *does* include servlet `Filter` beans — and
+`JwtAuthenticationFilter` is one. `@AutoConfigureMockMvc(addFilters = false)` only stops filters from
+being *applied* to the MockMvc chain; the filter bean is still *instantiated*, so its `JwtUtil`
+constructor dependency must exist. `JwtUtil` is a plain `@Component`, which the slice does not create.
+
+**Result.** Added `@MockitoBean JwtUtil` to each controller test to satisfy the filter bean; the
+slice loads and the tests pass. Lesson: `addFilters=false` disables filter *execution*, not filter
+*bean creation* — a component picked up by the slice still needs its dependencies present.
+
+---
+
 ## 2026-07-25 — Shared Testcontainers container + Spring context caching → 30s health-check hang (Phase 3)
 
 **Situation.** After Phase 3 added a 4th test class using the Testcontainers base, `mvn clean verify`

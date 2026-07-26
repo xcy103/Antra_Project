@@ -51,3 +51,16 @@
 - Verified in sandbox: 16 unit tests pass (`mvn test` for the non-Docker classes); full app run against live PostgreSQL demonstrated register/login/me + 401/403 on protected/admin/book-write endpoints + bad-creds 401 + BCrypt hash in DB. **Testcontainers `SecurityIntegrationTest` pending local `mvn clean verify`** (agent sandbox can't run Testcontainers; now solvable via Colima — see BUGLOG).
 - Boundary: no OAuth2 (BACKLOG), no Kafka/Feign/Gateway; JWT secret not hardcoded.
 - Next step: Phase 4 (testing suite — `@WebMvcTest`, `@DataJpaTest`, end-to-end integration, JaCoCo), **after manual confirmation**
+
+## 2026-07-25 — Phase 4: Testing suite
+
+- Filled out the test pyramid across all four layers:
+  - **Controller (`@WebMvcTest`, filters off):** `BookControllerTest`, `AuthControllerTest`, `UserControllerTest` — request mapping, Bean Validation → 400 with field errors, and exception→status mapping (404/409/401). Authorization itself stays in the integration tests.
+  - **Service (Mockito):** added `UserServiceImplTest` (alongside existing `BookServiceImplTest`, `AuthServiceImplTest`).
+  - **Repository (`@DataJpaTest` + Testcontainers):** added `UserRepositoryTest` (alongside `BookRepositoryTest`, `NPlusOneQueryTest`).
+  - **Integration (`@SpringBootTest` + Testcontainers):** added `EndToEndIntegrationTest` — the required E2E: register → login → (ADMIN) create book → public GET, plus USER-create → 403. Security suite already present.
+- JaCoCo wired in (`prepare-agent` + `report` on `verify`); report at `target/site/jacoco/index.html`.
+- **Break-a-test verification (DoD):** temporarily disabled the duplicate-ISBN check in `BookServiceImpl.createBook`; `BookServiceImplTest.createBook_duplicateIsbn_throwsDuplicate` turned **red** (expected `DuplicateResourceException`, got a different outcome). Reverted → green. Confirms tests catch broken business logic. No break markers remain in source.
+- Verified in sandbox: **38 non-Docker tests green** (`@WebMvcTest` + all Mockito + `JwtUtilTest`). The `@DataJpaTest`/`@SpringBootTest` (Testcontainers) classes and JaCoCo run in the full `mvn clean verify` — **pending local run** (agent sandbox can't run Testcontainers; use Colima per BUGLOG).
+- Valuable gotcha recorded in `docs/BUGLOG.md`: `@AutoConfigureMockMvc(addFilters=false)` still instantiates filter beans, so `JwtAuthenticationFilter`'s `JwtUtil` dependency had to be mocked in the slice.
+- Next step: Phase 5 (split into microservices), **after manual confirmation**
