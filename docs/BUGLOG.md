@@ -27,10 +27,13 @@ Colima-specific; on Docker Desktop / CI Linux the socket mounts fine.) Disabled 
 `TESTCONTAINERS_RYUK_DISABLED=true`; Testcontainers then falls back to a JVM shutdown hook to stop
 containers — fine for local dev.
 
-**Result.** `TESTCONTAINERS_RYUK_DISABLED=true mvn clean verify` → **BUILD SUCCESS, all 7 modules**.
-This is a **local-machine** setting (not committed): on CI/Linux Ryuk works normally. Documented in
-`README.md`. Lesson: Ryuk needs to bind-mount the docker socket; with a VM-based engine whose socket
-isn't a shareable host path, disable Ryuk and let the JVM shutdown hook do the cleanup.
+**Result.** Disabling Ryuk fixes it: `BUILD SUCCESS`. Initially set as the env var
+`TESTCONTAINERS_RYUK_DISABLED=true`; a `ryuk.disabled=true` in `~/.testcontainers.properties` was
+**not** honored on a later run (the env var is), so the disable was baked into the **Surefire config**
+(`environmentVariables/TESTCONTAINERS_RYUK_DISABLED=true` in the parent pom) — portable and needs no
+per-user setup (harmless on CI/Linux where runners are ephemeral). Lesson: Ryuk bind-mounts the docker
+socket; with a VM-based engine whose socket isn't a shareable host path, disable Ryuk and let the JVM
+shutdown hook clean up — and pin it in the build, not a local properties file.
 
 ---
 

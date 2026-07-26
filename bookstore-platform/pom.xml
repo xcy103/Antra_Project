@@ -66,6 +66,10 @@
                     </systemPropertyVariables>
                     <environmentVariables>
                         <DOCKER_API_VERSION>1.41</DOCKER_API_VERSION>
+                        <!-- Colima can't bind-mount its socket into Testcontainers' Ryuk
+                             reaper; disable it (JVM shutdown hook cleans up instead).
+                             Harmless on CI/Linux where runners are ephemeral. -->
+                        <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
                     </environmentVariables>
                 </configuration>
             </plugin>
