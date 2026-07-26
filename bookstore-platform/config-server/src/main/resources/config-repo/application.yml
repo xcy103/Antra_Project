@@ -10,6 +10,11 @@ spring:
   flyway:
     enabled: true
 
+  # Shared Kafka broker for all event-driven services (producer/consumer specifics
+  # live in each service). Overridden per environment / in docker-compose.
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
 jwt:
   secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-0123456789abcdef}
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}

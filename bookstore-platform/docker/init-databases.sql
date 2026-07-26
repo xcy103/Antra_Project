@@ -13,3 +13,9 @@ CREATE DATABASE orderdb OWNER order_svc;
 
 CREATE USER payment_svc WITH PASSWORD 'payment_svc';
 CREATE DATABASE paymentdb OWNER payment_svc;
+
+CREATE USER notification_svc WITH PASSWORD 'notification_svc';
+CREATE DATABASE notificationdb OWNER notification_svc;
+
+CREATE USER analytics_svc WITH PASSWORD 'analytics_svc';
+CREATE DATABASE analyticsdb OWNER analytics_svc;
