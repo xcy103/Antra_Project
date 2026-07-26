@@ -76,3 +76,13 @@
 - Monolith `bookstore/` and its root `docker-compose.yml`/`.env.example` removed.
 - Boundary: no Kafka (Phase 7), no Gateway (Phase 8), no Config Server (Phase 6); services don't share a DB.
 - Next step: Phase 6 (Spring Cloud Config), **after manual confirmation**
+
+## 2026-07-26 — Phase 6: Centralized configuration (Spring Cloud Config)
+
+- Added a **config-server** module (`@EnableConfigServer`, port 8888, `native` profile) serving a **config-repo** (`config-server/src/main/resources/config-repo/`): a shared `application.yml` (the JPA/Flyway/JWT/management/logging config that was duplicated across services) plus one file per service (port, datasource, and order-service's Feign/Resilience4j).
+- Each of the four services imports config via `spring.config.import: optional:configserver:${CONFIG_SERVER_URL:...}` + `spring-cloud-starter-config`. Imported config overrides the service's local yml; a `bookstore.config-source` marker (only in the config-repo) makes the origin visible in `/actuator/env`.
+- **`optional:` + local fallback**: services and all test suites still boot if the config-server is down (degrade to local defaults), so tests stay independent of a running config-server. **No secrets in the config-repo** — `JWT_SECRET`/`*_DB_PASSWORD` remain `${ENV}` placeholders.
+- Design doc adds the required paragraph on how this maps to K8s **ConfigMap** (non-secret config) / **Secret** (credentials) — since the app reads via `${ENV}` placeholders, only the config *source* changes, not the code.
+- Verified in sandbox (non-Docker): `ConfigServerApplicationTests` (config-server boots and serves user-service config incl. both markers) + user-service `@WebMvcTest` slice tests still green with the config import present (optional import skipped gracefully). Full `mvn clean verify` across all modules pending on the local machine.
+- Boundary: no Gateway (Phase 8), no Kafka (Phase 7); config-server not secured/HA yet (fine for this phase).
+- Next step: Phase 7 (Kafka async: OrderPlaced/PaymentCompleted, notification + analytics consumers), **after manual confirmation**

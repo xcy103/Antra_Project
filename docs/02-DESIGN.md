@@ -261,3 +261,47 @@ without stock reserved, and stock is never held for a cancelled order.
 `bookstore-platform/docker-compose.yml` starts one PostgreSQL with the four per-service databases
 (`docker/init-databases.sql`). Services run via `mvn spring-boot:run` (each has its own port and DB
 defaults). Containerizing the services into the compose file is Phase 10.
+
+---
+
+## Phase 6 — Centralized configuration (Spring Cloud Config)
+
+### Setup
+
+- **config-server** (`@EnableConfigServer`, port 8888) runs in the `native` profile and serves the
+  files under `config-server/src/main/resources/config-repo/`:
+  - `application.yml` — shared config for **all** services (JPA `validate`, `open-in-view=false`,
+    Flyway, JWT secret/TTL, management, logging) — the config that used to be copy-pasted into every
+    service's local yml.
+  - `user-service.yml` / `book-service.yml` / `order-service.yml` / `payment-service.yml` — per-service
+    (port, datasource, and order-service's Feign/Resilience4j settings).
+- Each service imports it with `spring.config.import: optional:configserver:${CONFIG_SERVER_URL:...}`
+  and the `spring-cloud-starter-config` client. Imported config **overrides** the service's local
+  `application.yml`. A `bookstore.config-source` marker exists only in the config-repo, so
+  `/actuator/env` shows whether a value came from the config-server.
+
+### Two deliberate choices
+
+- **`optional:` import + local fallback.** The import is optional and each service keeps a full local
+  `application.yml`. So a service (and every test) still boots if the config-server is down — it
+  degrades to local defaults instead of failing. When the config-server is up, it wins. This also keeps
+  the test suites independent of a running config-server.
+- **No secrets in the config-repo.** Secrets are `${ENV}` placeholders (`JWT_SECRET`, `*_DB_PASSWORD`)
+  resolved from the environment at bind time — the repo only ever contains placeholders and local-dev
+  defaults, never real credentials.
+
+### How this maps to Kubernetes (ConfigMap / Secret)
+
+In a real K8s deployment the config-server + config-repo are typically **replaced by native K8s
+objects**:
+
+- Non-secret configuration → a **ConfigMap** per service (or a shared one), mounted as environment
+  variables or as an `application.yml` file into the pod.
+- Credentials (DB passwords, `JWT_SECRET`) → a **Secret**, injected as env vars. Secrets are stored
+  separately from ConfigMaps, can be encrypted at rest, and locked down with RBAC — which is exactly
+  why we already keep secrets as `${ENV}` placeholders rather than in the config files.
+
+Because the app reads everything through Spring's `${ENV}`/property mechanism, **the application code
+doesn't change** — only *where* the values come from (config-server vs ConfigMap/Secret). A team might
+also keep a Git-backed config-server for dynamic refresh (`@RefreshScope` + Spring Cloud Bus), but the
+ConfigMap/Secret approach is the K8s-native default and needs no extra infrastructure.
