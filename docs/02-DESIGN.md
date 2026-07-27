@@ -394,3 +394,40 @@ compromised/misconfigured gateway can't bypass per-service authorization.
 
 Configured once, centrally, in the gateway's `globalcors` (open for local dev; lock origins down for
 production) — clients only ever talk to the gateway, so CORS lives in exactly one place.
+
+---
+
+## Phase 9 — AWS (S3 / Lambda / DynamoDB / SNS-SES)
+
+Region us-east-1; credentials via the SDK default chain (never hardcoded). Full deployment steps in
+`docs/AWS-DEPLOYMENT.md`. Both features live in book-service (+ a standalone Lambda).
+
+### Feature B — browsing history (DynamoDB)
+
+A logged-in `GET /api/books/{id}` records a view **asynchronously** (`@Async`, best-effort — never
+slows or fails the lookup) to DynamoDB `UserBrowsingHistory` (PK=userId, SK=viewedAt epoch-ms, plus an
+`expireAt` TTL attribute for ~30-day expiry). `GET /api/books/me/history` queries by user with
+`scanIndexForward(false)` for newest-first. Anonymous reads are not recorded.
+
+### Feature A — cover pipeline (S3 → Lambda → DynamoDB → SNS/SES)
+
+- Upload uses a **presigned S3 PUT URL** (`POST /api/books/{id}/cover`, ADMIN): the client uploads
+  straight to S3, so image bytes never flow through the service. The key is deterministic:
+  `covers/{bookId}`.
+- The `CoverImageHandler` Lambda reacts to the `s3:ObjectCreated` event, reads size/content-type/
+  dimensions, writes `CoverMetadata` (PK=bookId), and publishes an SNS "cover processed" message
+  (SNS → email subscription via SES).
+- `GET /api/books/{id}/cover` (public) reads `CoverMetadata`.
+
+**Idempotency:** the Lambda writes with `PutItem` + `attribute_not_exists(bookId)` and publishes SNS
+**only** on a first-time write. S3/Lambda are at-least-once, so a redelivered event fails the
+conditional write and is skipped — no duplicate metadata row and no duplicate email. The deterministic
+`bookId` key is what makes this work.
+
+### Testable vs real-AWS
+
+- Tested locally: browsing-history read/write and cover-metadata read against **`amazon/dynamodb-local`**
+  (Testcontainers); presigned-URL generation as an **offline** unit test; the Lambda's idempotent
+  conditional write + SNS-publish with **mocked** AWS clients.
+- Real AWS only: the S3 event → Lambda → SNS/SES wiring (validated by deploying to an account —
+  LocalStack can't run on this project's Colima engine, see BUGLOG).

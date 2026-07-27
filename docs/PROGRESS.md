@@ -106,3 +106,12 @@
 - Tests (no Docker needed): `GatewayJwtValidatorTest` (valid/expired/wrong-signature) + `EdgeAuthenticationIntegrationTest` (WebTestClient: 401 for protected-without/with-invalid-token and catalog writes; pass-through for public auth/catalog-read and valid-token routes). Verified green in the agent sandbox.
 - Boundary: no business logic in gateway; no AWS (Phase 9).
 - Next step: Phase 9 (AWS — S3/Lambda/DynamoDB cover pipeline + browsing history), **after manual confirmation**
+
+## 2026-07-26 — Phase 9: AWS (S3 / Lambda / DynamoDB / SNS-SES)
+
+- **Feature B — browsing history:** logged-in `GET /api/books/{id}` asynchronously writes DynamoDB `UserBrowsingHistory` (PK=userId, SK=viewedAt, 30-day TTL); `GET /api/books/me/history` returns newest-first. `@Async` + best-effort (never fails the lookup); anonymous reads not recorded. Tested against `amazon/dynamodb-local`.
+- **Feature A — cover pipeline:** `POST /api/books/{id}/cover` (ADMIN) returns a **presigned S3 PUT URL** (deterministic key `covers/{bookId}`); the new **`cover-image-lambda`** module reacts to the S3 event, writes `CoverMetadata` with a conditional `attribute_not_exists(bookId)` put and publishes SNS **only on first write** (idempotent — no duplicate row/email); `GET /api/books/{id}/cover` (public) reads it.
+- Testing (LocalStack can't run on Colima — see BUGLOG, so used narrower locals): DynamoDB via `amazon/dynamodb-local`; presigned-URL generation as an offline unit test; Lambda idempotency via mocked S3/DynamoDB/SNS clients. Real S3→Lambda→SNS/SES wiring is deployed to a real account per `docs/AWS-DEPLOYMENT.md`.
+- AWS SDK v2 (BOM-managed), region us-east-1, SDK default credential chain (endpoints overridable for dev/test); full deploy runbook in `docs/AWS-DEPLOYMENT.md`.
+- Boundary: no Docker/K8s yet (Phase 10). Consumers unchanged.
+- Next step: Phase 10 (containerization — Dockerfiles, docker-compose full stack, K8s manifests), **after manual confirmation**
