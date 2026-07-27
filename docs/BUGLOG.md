@@ -9,6 +9,29 @@ mismatches — those aren't worth an entry.
 
 ---
 
+## 2026-07-26 — LocalStack container won't start on Colima; used dynamodb-local instead (Phase 9)
+
+**Situation.** The browsing-history integration test (`LocalStackContainer` with the DynamoDB service)
+failed with `Container startup failed for image localstack/localstack:3.8`, while every other
+Testcontainers test (Postgres, Kafka) on the same Colima setup passed.
+
+**Task.** Get a real-DynamoDB integration test running on the local Colima engine.
+
+**Action.** The differentiator: Testcontainers' `LocalStackContainer` **bind-mounts the Docker socket**
+into the container (to support LocalStack's Lambda execution), and Colima's VM can't mount that socket
+path — the identical "operation not supported" limitation that forced Ryuk off. Postgres/Kafka
+containers don't mount the socket, which is why they work. For a **DynamoDB-only** test, LocalStack is
+unnecessary weight, so switched to AWS's official **`amazon/dynamodb-local`** image via a plain
+`GenericContainer` (exposes the DynamoDB API on 8000, no socket mount).
+
+**Result.** The test runs on Colima against real DynamoDB semantics (put/query, sort-key ordering,
+per-user isolation) with no LocalStack. Lesson: pick the **narrowest** container for the job —
+service-specific locals (`amazon/dynamodb-local`) avoid LocalStack's socket-mount baggage. LocalStack
+is still the right choice when a test needs multiple AWS services together (Phase 9 Feature A's
+S3+SNS/SES pipeline is validated via a deployment doc + manual real-AWS run instead).
+
+---
+
 ## 2026-07-26 — Colima can't bind-mount its docker socket into Ryuk (Phase 5/6)
 
 **Situation.** After the platform grew to several Testcontainers-using modules, `mvn clean verify`

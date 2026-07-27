@@ -4,7 +4,7 @@ import com.bookstore.bookservice.dto.BrowsingHistoryEntry;
 import com.bookstore.bookservice.entity.BrowsingHistoryItem;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -16,31 +16,35 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
+import java.net.URI;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Verifies the DynamoDB browsing-history integration against LocalStack: writes
- * are queried back most-recent-first and are isolated per user.
+ * Verifies the DynamoDB browsing-history integration against AWS's official
+ * {@code amazon/dynamodb-local} image (chosen over LocalStack because it needs no
+ * docker-socket bind-mount, which Colima rejects — see docs/BUGLOG.md). Writes are
+ * queried back most-recent-first and are isolated per user.
  */
 @Testcontainers
 class BrowsingHistoryIntegrationTest {
 
     @Container
-    static final LocalStackContainer LOCALSTACK = new LocalStackContainer(
-            DockerImageName.parse("localstack/localstack:3.8"))
-            .withServices(LocalStackContainer.Service.DYNAMODB);
+    static final GenericContainer<?> DYNAMODB = new GenericContainer<>(
+            DockerImageName.parse("amazon/dynamodb-local:2.5.2"))
+            .withExposedPorts(8000);
 
     private static BrowsingHistoryService service;
 
     @BeforeAll
     static void setUp() {
+        String endpoint = "http://" + DYNAMODB.getHost() + ":" + DYNAMODB.getMappedPort(8000);
         DynamoDbClient client = DynamoDbClient.builder()
-                .endpointOverride(LOCALSTACK.getEndpointOverride(LocalStackContainer.Service.DYNAMODB))
-                .region(Region.of(LOCALSTACK.getRegion()))
+                .endpointOverride(URI.create(endpoint))
+                .region(Region.US_EAST_1)
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(LOCALSTACK.getAccessKey(), LOCALSTACK.getSecretKey())))
+                        AwsBasicCredentials.create("test", "test")))
                 .build();
 
         DynamoDbEnhancedClient enhanced = DynamoDbEnhancedClient.builder().dynamoDbClient(client).build();
