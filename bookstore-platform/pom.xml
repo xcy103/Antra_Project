@@ -36,6 +36,7 @@
         <module>notification-service</module>
         <module>analytics-service</module>
         <module>api-gateway</module>
+        <module>cover-image-lambda</module>
     </modules>
 
     <dependencyManagement>
