@@ -1,0 +1,7 @@
+# Keep the build context small and force a clean in-image build.
+**/target/
+.git/
+.idea/
+**/*.iml
+*.md
+docs/
