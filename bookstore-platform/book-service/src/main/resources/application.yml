@@ -44,6 +44,11 @@ aws:
   dynamodb:
     endpoint: ${AWS_DYNAMODB_ENDPOINT:}
     browsing-history-table: ${BROWSING_HISTORY_TABLE:UserBrowsingHistory}
+    cover-metadata-table: ${COVER_METADATA_TABLE:CoverMetadata}
+  s3:
+    endpoint: ${AWS_S3_ENDPOINT:}
+    bucket: ${COVER_BUCKET:bookstore-covers}
+    upload-url-ttl-minutes: 10
 
 bookstore:
   browsing-history:

@@ -3,8 +3,11 @@ package com.bookstore.bookservice.controller;
 import com.bookstore.bookservice.dto.BookRequestDto;
 import com.bookstore.bookservice.dto.BookResponseDto;
 import com.bookstore.bookservice.dto.BrowsingHistoryEntry;
+import com.bookstore.bookservice.dto.CoverMetadataResponse;
+import com.bookstore.bookservice.dto.CoverUploadResponse;
 import com.bookstore.bookservice.service.BookService;
 import com.bookstore.bookservice.service.BrowsingHistoryService;
+import com.bookstore.bookservice.service.CoverService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,10 +37,14 @@ public class BookController {
 
     private final BookService bookService;
     private final BrowsingHistoryService browsingHistoryService;
+    private final CoverService coverService;
 
-    public BookController(BookService bookService, BrowsingHistoryService browsingHistoryService) {
+    public BookController(BookService bookService,
+                          BrowsingHistoryService browsingHistoryService,
+                          CoverService coverService) {
         this.bookService = bookService;
         this.browsingHistoryService = browsingHistoryService;
+        this.coverService = coverService;
     }
 
     @GetMapping
@@ -76,5 +84,18 @@ public class BookController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteBook(@PathVariable Long id) {
         bookService.deleteBook(id);
+    }
+
+    /** ADMIN: get a presigned S3 URL to upload this book's cover to. */
+    @PostMapping("/{id}/cover")
+    public CoverUploadResponse requestCoverUpload(@PathVariable Long id,
+                                                  @RequestParam(required = false) String contentType) {
+        return coverService.createUploadUrl(id, contentType);
+    }
+
+    /** PUBLIC: cover metadata (written by the cover Lambda after processing). */
+    @GetMapping("/{id}/cover")
+    public CoverMetadataResponse getCover(@PathVariable Long id) {
+        return coverService.getCoverMetadata(id);
     }
 }
