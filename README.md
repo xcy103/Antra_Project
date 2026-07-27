@@ -55,33 +55,45 @@ that evolution.** Each phase is tagged (`phase-1`, `phase-2`, …).
 
 ## Status
 
-Phase 5 complete: the monolith has been split into four microservices under
-[`bookstore-platform/`](bookstore-platform/) — **user**, **book**, **order**, **payment** — each with
-its own PostgreSQL database, plus a shared `common` library. order-service calls book-service over
-OpenFeign with a Resilience4j circuit breaker (graceful degradation when book-service is down). The
-Phase 1–4 monolith lives in history under the `phase-1`…`phase-4` tags. See `docs/PROGRESS.md` and the
-Phase 5 section of `docs/02-DESIGN.md`.
+Phase 10 complete: eight services under [`bookstore-platform/`](bookstore-platform/) (user, book,
+order, payment, config-server, notification, analytics, api-gateway) + a shared `common` library and a
+`cover-image-lambda`. Event-driven via Kafka, fronted by a Spring Cloud Gateway, config from Spring
+Cloud Config, AWS (S3/Lambda/DynamoDB/SNS) for covers + browsing history, and now fully containerized:
+a one-command `docker compose` stack and `k8s/` manifests. The Phase 1–4 monolith lives in history
+under the `phase-1`…`phase-4` tags. See `docs/PROGRESS.md` and `docs/02-DESIGN.md`.
 
 ## Local Development
 
 Prerequisites: JDK 17, Maven, Docker.
 
+### Whole stack in one command (Phase 10)
+
 ```bash
-# 1. One PostgreSQL with a database per service (userdb/bookdb/orderdb/paymentdb)
 cd bookstore-platform
-docker compose up -d postgres
+docker compose up --build            # PostgreSQL + Kafka + all 8 services
+curl localhost:8080/actuator/health  # everything is reached via the gateway (:8080)
+```
+
+The first build is slow (each image runs Maven). The stack wants ~6 GB — on Colima,
+`colima start --memory 6`. Kubernetes manifests + guide are in [`bookstore-platform/k8s/`](bookstore-platform/k8s/).
+
+### Or run modules directly (for fast iteration)
+
+```bash
+# 1. Just the infra (PostgreSQL with a database per service, + Kafka)
+cd bookstore-platform
+docker compose up -d postgres kafka
 
 # 2. Build and test the whole platform (all modules)
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 mvn clean verify
 
-# 3. Run the services (each in its own terminal), then hit them through their ports
-cd user-service    && mvn spring-boot:run   # :8081
-cd book-service    && mvn spring-boot:run   # :8082
-cd order-service   && mvn spring-boot:run   # :8083  (calls book-service)
-cd payment-service && mvn spring-boot:run   # :8084
+# 3. Run services (each in its own terminal); host talks to Kafka on localhost:29092
+cd config-server && mvn spring-boot:run   # :8888
+cd user-service  && mvn spring-boot:run   # :8081
+cd book-service  && mvn spring-boot:run   # :8082
+# ... order :8083, payment :8084, notification :8085, analytics :8086, api-gateway :8080
 
-# Example flow: register + login on user-service, then place an order on order-service
 curl localhost:8081/actuator/health   # -> {"status":"UP"}
 ```
 
