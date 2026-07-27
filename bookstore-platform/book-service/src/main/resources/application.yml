@@ -36,3 +36,15 @@ logging:
   level:
     root: INFO
     com.bookstore: INFO
+
+# AWS / DynamoDB for browsing history. Real AWS: leave endpoint empty and rely on
+# the SDK default credential chain. Dev/test (LocalStack): set aws.dynamodb.endpoint.
+aws:
+  region: ${AWS_REGION:us-east-1}
+  dynamodb:
+    endpoint: ${AWS_DYNAMODB_ENDPOINT:}
+    browsing-history-table: ${BROWSING_HISTORY_TABLE:UserBrowsingHistory}
+
+bookstore:
+  browsing-history:
+    ttl-days: 30

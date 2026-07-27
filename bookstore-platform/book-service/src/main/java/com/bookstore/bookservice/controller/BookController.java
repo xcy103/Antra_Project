@@ -2,10 +2,13 @@ package com.bookstore.bookservice.controller;
 
 import com.bookstore.bookservice.dto.BookRequestDto;
 import com.bookstore.bookservice.dto.BookResponseDto;
+import com.bookstore.bookservice.dto.BrowsingHistoryEntry;
 import com.bookstore.bookservice.service.BookService;
+import com.bookstore.bookservice.service.BrowsingHistoryService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,9 +32,11 @@ import java.util.List;
 public class BookController {
 
     private final BookService bookService;
+    private final BrowsingHistoryService browsingHistoryService;
 
-    public BookController(BookService bookService) {
+    public BookController(BookService bookService, BrowsingHistoryService browsingHistoryService) {
         this.bookService = bookService;
+        this.browsingHistoryService = browsingHistoryService;
     }
 
     @GetMapping
@@ -39,9 +44,20 @@ public class BookController {
         return bookService.getAllBooks();
     }
 
+    /** Recently-viewed books for the current user (reverse chronological). */
+    @GetMapping("/me/history")
+    public List<BrowsingHistoryEntry> myHistory(Authentication authentication) {
+        return browsingHistoryService.getRecentlyViewed(authentication.getName(), 20);
+    }
+
     @GetMapping("/{id}")
-    public BookResponseDto getBookById(@PathVariable Long id) {
-        return bookService.getBookById(id);
+    public BookResponseDto getBookById(@PathVariable Long id, Authentication authentication) {
+        BookResponseDto book = bookService.getBookById(id);
+        // Anonymous reads are allowed (public endpoint); only record for logged-in users.
+        if (authentication != null) {
+            browsingHistoryService.recordView(authentication.getName(), book.id(), book.title());
+        }
+        return book;
     }
 
     @PostMapping
