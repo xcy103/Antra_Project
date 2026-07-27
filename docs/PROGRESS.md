@@ -97,3 +97,12 @@
 - Deferred (challenge, per BACKLOG): **DLQ** (ErrorHandlingDeserializer + DefaultErrorHandler + DeadLetterPublishingRecoverer) and the **transactional outbox** for exactly-once producing — designs written in `docs/02-DESIGN.md`, to follow now that the main flow works.
 - Boundary: no Gateway (Phase 8), no AWS (Phase 9). Consumers expose only `/actuator/health`.
 - Next step: Phase 8 (API Gateway — Spring Cloud Gateway, edge JWT, routing, CORS), **after manual confirmation**
+
+## 2026-07-26 — Phase 8: API Gateway
+
+- Added **api-gateway** (Spring Cloud Gateway, reactive) as the single entry point on :8080; routes by path to user/book/order/payment (8081–8084). No business logic in the gateway.
+- **Edge JWT validation**: `EdgeAuthenticationFilter` (GlobalFilter, pre-routing) rejects unauthenticated requests to protected routes with 401 before they reach a service; public routes are `/api/auth/**`, `GET /api/books/**`, actuator. Forwards the token + adds `X-Auth-Username`/`X-Auth-Role`. Fine-grained role checks stay in the services (defense in depth).
+- The reactive gateway **doesn't depend on common** (servlet MVC vs WebFlux conflict); it re-implements JWT verification with jjwt (`GatewayJwtValidator`) using the shared secret. CORS centralized in the gateway.
+- Tests (no Docker needed): `GatewayJwtValidatorTest` (valid/expired/wrong-signature) + `EdgeAuthenticationIntegrationTest` (WebTestClient: 401 for protected-without/with-invalid-token and catalog writes; pass-through for public auth/catalog-read and valid-token routes). Verified green in the agent sandbox.
+- Boundary: no business logic in gateway; no AWS (Phase 9).
+- Next step: Phase 9 (AWS — S3/Lambda/DynamoDB cover pipeline + browsing history), **after manual confirmation**

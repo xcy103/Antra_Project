@@ -351,3 +351,46 @@ verified idempotent-consumer core stable.
 `docker compose up -d` starts PostgreSQL (per-service DBs) and a single-node **Kafka** (KRaft, no
 ZooKeeper) advertised on `localhost:9092`. Run the six services with `mvn spring-boot:run`; place an
 order and pay, then watch notification-service and analytics-service both react in their logs.
+
+---
+
+## Phase 8 — API Gateway
+
+### Single entry point + routing
+
+Spring Cloud Gateway runs on **:8080** as the one address clients use; the services move behind it on
+8081–8084. Routes are pure path predicates → service URIs (no business logic in the gateway):
+
+| Path | Service |
+|---|---|
+| `/api/auth/**`, `/api/users/**` | user-service |
+| `/api/books/**` | book-service |
+| `/api/orders/**` | order-service |
+| `/api/payments/**` | payment-service |
+
+### Reactive gateway ⇒ no dependency on `common`
+
+Spring Cloud Gateway is **WebFlux** (reactive); putting `spring-boot-starter-web` (servlet MVC) on its
+classpath makes Boot fail ("Spring MVC found on classpath, incompatible with Spring Cloud Gateway").
+Since `common` pulls servlet web + the servlet `JwtAuthenticationFilter`, the gateway **deliberately
+does not depend on `common`**. It re-implements JWT verification with jjwt (~10 lines,
+`GatewayJwtValidator`) using the same `JWT_SECRET`. Small duplication, but it keeps the reactive
+gateway clean. (config-server is likewise skipped here to avoid pulling servlet bits.)
+
+### Edge authentication + identity propagation
+
+`EdgeAuthenticationFilter` is a `GlobalFilter` (order −1, before routing):
+
+- **Public:** `/api/auth/**`, `GET /api/books/**`, `/actuator/**` → pass through.
+- **Protected:** everything else must carry a valid `Bearer` JWT, else **401 at the edge** (the
+  request never reaches a service). Verified by `EdgeAuthenticationIntegrationTest`.
+- On success it forwards the bearer token **and** adds `X-Auth-Username` / `X-Auth-Role` headers.
+
+**Defense in depth:** the gateway only checks "is this a valid token"; each service still runs its own
+JWT filter and does the **fine-grained role checks** (e.g. book writes = ADMIN → 403). So a
+compromised/misconfigured gateway can't bypass per-service authorization.
+
+### CORS
+
+Configured once, centrally, in the gateway's `globalcors` (open for local dev; lock origins down for
+production) — clients only ever talk to the gateway, so CORS lives in exactly one place.

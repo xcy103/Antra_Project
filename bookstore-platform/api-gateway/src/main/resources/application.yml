@@ -1,0 +1,47 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: ${USER_SERVICE_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/**,/api/users/**
+        - id: book-service
+          uri: ${BOOK_SERVICE_URI:http://localhost:8082}
+          predicates:
+            - Path=/api/books/**
+        - id: order-service
+          uri: ${ORDER_SERVICE_URI:http://localhost:8083}
+          predicates:
+            - Path=/api/orders/**
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URI:http://localhost:8084}
+          predicates:
+            - Path=/api/payments/**
+      # Single place for CORS (open for local dev; tighten origins in production).
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+
+# Same shared secret as the services — the gateway verifies, it never issues.
+jwt:
+  secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-0123456789abcdef}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    root: INFO
+    com.bookstore: INFO
