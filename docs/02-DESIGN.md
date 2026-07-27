@@ -305,3 +305,49 @@ Because the app reads everything through Spring's `${ENV}`/property mechanism, *
 doesn't change** — only *where* the values come from (config-server vs ConfigMap/Secret). A team might
 also keep a Git-backed config-server for dynamic refresh (`@RefreshScope` + Spring Cloud Bus), but the
 ConfigMap/Secret approach is the K8s-native default and needs no extra infrastructure.
+
+---
+
+## Phase 7 — Kafka (event-driven, eventually consistent)
+
+### Flow
+
+- **Producers:** order-service publishes `OrderPlaced` on `order-placed`; payment-service publishes
+  `PaymentCompleted` on `payment-completed`. Both are keyed by **orderId**, so all events for one
+  order land on the same partition and are consumed in order. Publishing is **non-blocking** (a broker
+  hiccup never fails the HTTP request).
+- **Consumers (two groups):** notification-service (group `notification-service`) "sends"
+  notifications; analytics-service (group `analytics-service`) aggregates running totals. Because they
+  use **different consumer groups**, each independently receives **every** event off the same topics.
+- Events live in `common` (`OrderPlacedEvent`, `PaymentCompletedEvent`) and are JSON-serialized with
+  type headers; consumers trust `com.bookstore.common.event`.
+
+### At-least-once + idempotency
+
+Kafka is at-least-once, so a consumer can see the same record more than once (redelivery, rebalance,
+retry). Each event carries a stable `eventId` (a UUID the producer sets once). Consumers keep a
+`processed_event` ledger keyed by `eventId`: before doing the work they check the ledger and skip if
+already present, then record it in the same transaction. `NotificationIdempotencyTest` /
+`AnalyticsIdempotencyTest` prove it — the same event delivered twice yields exactly one side effect.
+
+### Consistency model
+
+This realizes the Phase-5 Saga: an order is created `PENDING`; downstream reactions happen
+asynchronously via events, so the system is **eventually consistent** rather than transactionally
+consistent across services. The known gap is the **dual write** (DB commit + Kafka publish aren't
+atomic); the production-grade fix is the **transactional outbox** pattern (write the event to an
+outbox table in the same DB transaction, relay it to Kafka separately) — tracked in BACKLOG.
+
+### Dead-letter queue (challenge — deferred)
+
+Design: wrap consumer deserialization in `ErrorHandlingDeserializer` (so a poison/unparseable message
+doesn't hot-loop) and register a `DefaultErrorHandler` with a bounded backoff plus a
+`DeadLetterPublishingRecoverer` that routes exhausted records to a `<topic>.DLT` topic; monitor DLT
+lag/size as an alert. Per BACKLOG this lands after the Phase 7 main flow is validated, to keep the
+verified idempotent-consumer core stable.
+
+### Local run
+
+`docker compose up -d` starts PostgreSQL (per-service DBs) and a single-node **Kafka** (KRaft, no
+ZooKeeper) advertised on `localhost:9092`. Run the six services with `mvn spring-boot:run`; place an
+order and pay, then watch notification-service and analytics-service both react in their logs.

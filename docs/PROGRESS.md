@@ -86,3 +86,14 @@
 - Verified in sandbox (non-Docker): `ConfigServerApplicationTests` (config-server boots and serves user-service config incl. both markers) + user-service `@WebMvcTest` slice tests still green with the config import present (optional import skipped gracefully). Full `mvn clean verify` across all modules pending on the local machine.
 - Boundary: no Gateway (Phase 8), no Kafka (Phase 7); config-server not secured/HA yet (fine for this phase).
 - Next step: Phase 7 (Kafka async: OrderPlaced/PaymentCompleted, notification + analytics consumers), **after manual confirmation**
+
+## 2026-07-26 — Phase 7: Kafka (event-driven async)
+
+- Events in `common` (`OrderPlacedEvent`, `PaymentCompletedEvent`, `KafkaTopics`). order-service publishes `OrderPlaced` on placement; payment-service publishes `PaymentCompleted` on success — both keyed by `orderId` (per-order ordering), non-blocking so a broker hiccup never fails the request.
+- Two new consumer services, **no business API** (health only), Spring Security auto-config excluded: **notification-service** (group `notification-service`, "sends" notifications) and **analytics-service** (group `analytics-service`, aggregates running totals in a `metric` table). Different groups → both receive every event.
+- **Idempotency** (Kafka is at-least-once): each consumer keeps a `processed_event` ledger keyed by `eventId`; the work is skipped if already recorded. Proven by `NotificationIdempotencyTest` and `AnalyticsIdempotencyTest` (same event twice → one side effect) using Testcontainers Kafka + Postgres. Unit tests cover the dedup/aggregation logic without a broker; publisher unit tests verify topic+key.
+- Infra: `docker-compose.yml` adds a single-node **Kafka** (KRaft, no ZooKeeper) on `localhost:9092`, plus `notificationdb`/`analyticsdb`. Kafka `bootstrap-servers` centralized in the config-repo shared file.
+- Test-infra: Ryuk disabled in the Surefire config (`TESTCONTAINERS_RYUK_DISABLED=true`) — Colima can't bind-mount its socket into Ryuk (see BUGLOG); now plain `mvn clean verify` works with no env var.
+- Deferred (challenge, per BACKLOG): **DLQ** (ErrorHandlingDeserializer + DefaultErrorHandler + DeadLetterPublishingRecoverer) and the **transactional outbox** for exactly-once producing — designs written in `docs/02-DESIGN.md`, to follow now that the main flow works.
+- Boundary: no Gateway (Phase 8), no AWS (Phase 9). Consumers expose only `/actuator/health`.
+- Next step: Phase 8 (API Gateway — Spring Cloud Gateway, edge JWT, routing, CORS), **after manual confirmation**
