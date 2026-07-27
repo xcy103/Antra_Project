@@ -3,6 +3,7 @@ package com.bookstore.bookservice.controller;
 import com.bookstore.bookservice.dto.BookRequestDto;
 import com.bookstore.bookservice.dto.BookResponseDto;
 import com.bookstore.bookservice.service.BookService;
+import com.bookstore.bookservice.service.BrowsingHistoryService;
 import com.bookstore.common.exception.DuplicateResourceException;
 import com.bookstore.common.exception.ResourceNotFoundException;
 import com.bookstore.common.security.JwtUtil;
@@ -46,6 +47,9 @@ class BookControllerTest {
 
     @MockitoBean
     private JwtUtil jwtUtil;
+
+    @MockitoBean
+    private BrowsingHistoryService browsingHistoryService;
 
     private BookResponseDto sampleResponse() {
         return new BookResponseDto(1L, "Clean Code", "978-0132350884",
