@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: analytics-service
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
+  datasource:
+    url: ${ANALYTICS_DB_URL:jdbc:postgresql://localhost:5432/analyticsdb}
+    username: ${ANALYTICS_DB_USER:analytics_svc}
+    password: ${ANALYTICS_DB_PASSWORD:analytics_svc}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      # Different group from notification-service, so both get every event.
+      group-id: analytics-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.bookstore.common.event
+
+server:
+  port: ${SERVER_PORT:8086}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+logging:
+  level:
+    root: INFO
+    com.bookstore: INFO
