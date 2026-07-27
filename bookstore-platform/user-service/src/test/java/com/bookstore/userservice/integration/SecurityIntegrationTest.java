@@ -8,6 +8,7 @@ import com.bookstore.userservice.dto.RegisterRequest;
 import com.bookstore.userservice.entity.User;
 import com.bookstore.userservice.repository.UserRepository;
 import com.bookstore.userservice.support.AbstractPostgresIT;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +39,13 @@ class SecurityIntegrationTest extends AbstractPostgresIT {
     @Autowired
     private JwtUtil jwtUtil;
 
+    // Clean both before AND after: this test COMMITS users (it hits a real web
+    // server, so there is no rollback). The Postgres container is a singleton
+    // shared across every test class, so leftover rows would leak into other
+    // classes (e.g. UserRepositoryTest) and collide on the username unique
+    // constraint — order-dependent, hence green locally but red on CI.
     @BeforeEach
+    @AfterEach
     void cleanUsers() {
         userRepository.deleteAll();
     }

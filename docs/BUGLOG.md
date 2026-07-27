@@ -9,6 +9,45 @@ mismatches — those aren't worth an entry.
 
 ---
 
+## 2026-07-27 — Green locally, red on CI: committed test data leaks across classes via the singleton container (Phase 11/12)
+
+**Situation.** The first real GitHub Actions run of the pipeline went **red**, even though
+`mvn clean verify` was **green** on the local machine. One test failed:
+`UserRepositoryTest.existsChecks_reflectPersistedUser` →
+`DataIntegrityViolationException: duplicate key value violates unique constraint "uq_users_username"`
+on `save(new User("bob", ...))`.
+
+**Task.** Explain why the *same* command passes locally but fails on CI, and make the suite
+order-independent rather than just re-running until it's green.
+
+**Action.**
+1. `UserRepositoryTest` is a `@DataJpaTest` — transactional, rolled back per test — so on its own it
+   can't leave a `bob` row behind. The duplicate had to be **pre-existing committed data**.
+2. The source was `SecurityIntegrationTest`, a `@SpringBootTest(RANDOM_PORT)` that registers
+   `alice/bob/carol/root` through the real web server. Those writes **commit** (a running server has
+   no test-managed transaction to roll back).
+3. The two classes share **one** Postgres — this is exactly the **singleton-container** pattern
+   adopted back in Phase 3 to stop context-cache churn (see the 2026-07-25 entry). That fix traded
+   per-class DB isolation for speed: committed rows now outlive the class that wrote them.
+4. `SecurityIntegrationTest` already cleaned `@BeforeEach`, but that only protects *its own* tests
+   from each other — the **last** test's committed users survive the class and leak into whatever
+   runs next. Surefire's class order differs between machines, so locally `UserRepositoryTest`
+   happened to run *first*; on the Linux runner it ran *after* → collision.
+5. **Fix:** make the committing test clean up after itself too — annotate the cleanup with both
+   `@BeforeEach` **and** `@AfterEach` (`userRepository.deleteAll()`), so no committed row ever
+   outlives the class. Audited the other modules' committing `@SpringBootTest`s (book / order /
+   payment): their hardcoded unique values (`sec-201`, orderIds `100/101/102`) don't overlap the
+   repo tests' values (`isbn-*`, orderIds `10/20`), and the `@DataJpaTest`s roll back — so no further
+   collisions, but the same discipline applies if those values ever converge.
+
+**Result.** The suite is now order-independent: any committing integration test leaves the shared
+container as it found it. Pending re-run of the CI pipeline to confirm green. **Lesson:** a shared
+singleton container is a deliberate isolation/speed trade-off — once you commit through a real server
+(no rollback), *cleanup is the test's own responsibility, and it must run `@AfterEach`, not just
+`@BeforeEach`.* "Green on my machine" for an ordering bug is luck, not proof.
+
+---
+
 ## 2026-07-26 — LocalStack container won't start on Colima; used dynamodb-local instead (Phase 9)
 
 **Situation.** The browsing-history integration test (`LocalStackContainer` with the DynamoDB service)
