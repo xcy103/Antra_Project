@@ -115,3 +115,12 @@
 - AWS SDK v2 (BOM-managed), region us-east-1, SDK default credential chain (endpoints overridable for dev/test); full deploy runbook in `docs/AWS-DEPLOYMENT.md`.
 - Boundary: no Docker/K8s yet (Phase 10). Consumers unchanged.
 - Next step: Phase 10 (containerization — Dockerfiles, docker-compose full stack, K8s manifests), **after manual confirmation**
+
+## 2026-07-27 — Phase 10: Containerization & orchestration
+
+- **Multi-stage Dockerfile** (one file, parameterized by `SERVICE`): JDK-17 Maven build → JRE-17 runtime, non-root; `.dockerignore` trims the context. Validated by building an image in the sandbox.
+- **docker-compose full stack** (the DoD): PostgreSQL (db per service), single-node Kafka with a dual listener (`kafka:9092` internal / `localhost:29092` host), all 8 services built from the shared Dockerfile, gateway the only exposed port (:8080). JVM heaps capped so it fits a modest VM. `docker compose config` valid.
+- **k8s manifests** (`k8s/`): namespace; ConfigMap (non-secret) + Secret (JWT/DB creds) via `envFrom`; PostgreSQL + Kafka; 8 Deployments+Services (uniform, all on 8080, DNS discovery); Actuator **liveness/readiness probes**; gateway as `LoadBalancer`; **HPA** (challenge) on book/order (1→4 @ 70% CPU). All YAML parses; full schema validation happens on a real cluster (+ `k8s/README.md` deploy guide).
+- Not containerized: `common` (library) and `cover-image-lambda` (deployed to AWS Lambda, not a service).
+- Boundary: no CI/CD yet (Phase 11).
+- Next step: Phase 11 (CI/CD with GitHub Actions + monitoring), **after manual confirmation**

@@ -431,3 +431,43 @@ conditional write and is skipped — no duplicate metadata row and no duplicate 
   conditional write + SNS-publish with **mocked** AWS clients.
 - Real AWS only: the S3 event → Lambda → SNS/SES wiring (validated by deploying to an account —
   LocalStack can't run on this project's Colima engine, see BUGLOG).
+
+---
+
+## Phase 10 — Containerization & orchestration
+
+### Image build (one parameterized multi-stage Dockerfile)
+
+Rather than eight near-identical Dockerfiles, a single `Dockerfile` takes a `SERVICE` build-arg:
+stage 1 (`maven:3.9-eclipse-temurin-17`) runs `mvn -pl ${SERVICE} -am -DskipTests package` (builds the
+module + the common library); stage 2 (`eclipse-temurin:17-jre`) copies just the jar and runs it as a
+non-root user. `.dockerignore` keeps `target/` and git out of the context. docker-compose/k8s pass the
+`SERVICE` per service, so each still gets its own image from the same JDK-build → JRE-run pipeline.
+
+### docker-compose — one-command full stack (the DoD)
+
+`docker compose up --build` brings up PostgreSQL (a database per service via the init script), a
+single-node Kafka, and all eight services. Key points:
+- **Kafka dual listener:** `INTERNAL://kafka:9092` for in-network services and `EXTERNAL://localhost:29092`
+  for host tools — the classic fix so the advertised address is correct for both callers.
+- Services reach each other by compose service name (`postgres:5432`, `kafka:9092`,
+  `http://book-service:8082`, `http://config-server:8888`); the **gateway is the only host-exposed
+  port (:8080)**.
+- Each JVM heap is capped (`-Xmx256m`) so the whole stack fits a modest Docker VM; `depends_on` waits
+  for Postgres health.
+
+### Kubernetes (`k8s/`)
+
+- **ConfigMap** (non-secret: URLs, DB hosts/users, region) + **Secret** (JWT + DB passwords), injected
+  into every pod via `envFrom`. All services listen on **8080** and resolve each other by Service DNS.
+- One **Deployment + Service** per service (uniform template — differ only by name/image), plus
+  PostgreSQL (emptyDir for the demo; a StatefulSet+PVC in prod) and Kafka.
+- **Liveness/readiness probes → `/actuator/health`**, so k8s only routes to ready pods and restarts
+  wedged ones.
+- **HPA** (challenge) on book- and order-service: scale 1→4 on 70% CPU (needs metrics-server).
+- The gateway Service is `LoadBalancer` (the single external entry). Notes in `k8s/README.md` cover
+  loading images into kind/minikube, secret management, and IRSA for the AWS-backed features.
+
+This maps back to the Phase-6 note: in k8s the config-server/config-repo is replaced by the ConfigMap
+(non-secret) and Secret (credentials) — the app reads both through the same `${ENV}` placeholders, so
+no code changes.

@@ -1,0 +1,46 @@
+# Non-secret config (ConfigMap) and credentials (Secret), injected into every
+# service via envFrom. In k8s all services listen on 8080 and reach each other by
+# Service DNS name. Real clusters would source the Secret from a secret manager;
+# the values here are local-dev placeholders (same as the compose defaults).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+  namespace: bookstore
+data:
+  SERVER_PORT: "8080"
+  CONFIG_SERVER_URL: "http://config-server:8080"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  BOOK_SERVICE_URL: "http://book-service:8080"
+  USER_SERVICE_URI: "http://user-service:8080"
+  BOOK_SERVICE_URI: "http://book-service:8080"
+  ORDER_SERVICE_URI: "http://order-service:8080"
+  PAYMENT_SERVICE_URI: "http://payment-service:8080"
+  AWS_REGION: "us-east-1"
+  USER_DB_URL: "jdbc:postgresql://postgres:5432/userdb"
+  BOOK_DB_URL: "jdbc:postgresql://postgres:5432/bookdb"
+  ORDER_DB_URL: "jdbc:postgresql://postgres:5432/orderdb"
+  PAYMENT_DB_URL: "jdbc:postgresql://postgres:5432/paymentdb"
+  NOTIFICATION_DB_URL: "jdbc:postgresql://postgres:5432/notificationdb"
+  ANALYTICS_DB_URL: "jdbc:postgresql://postgres:5432/analyticsdb"
+  USER_DB_USER: "user_svc"
+  BOOK_DB_USER: "book_svc"
+  ORDER_DB_USER: "order_svc"
+  PAYMENT_DB_USER: "payment_svc"
+  NOTIFICATION_DB_USER: "notification_svc"
+  ANALYTICS_DB_USER: "analytics_svc"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: platform-secrets
+  namespace: bookstore
+type: Opaque
+stringData:
+  JWT_SECRET: "dev-only-insecure-secret-change-me-please-0123456789abcdef"
+  USER_DB_PASSWORD: "user_svc"
+  BOOK_DB_PASSWORD: "book_svc"
+  ORDER_DB_PASSWORD: "order_svc"
+  PAYMENT_DB_PASSWORD: "payment_svc"
+  NOTIFICATION_DB_PASSWORD: "notification_svc"
+  ANALYTICS_DB_PASSWORD: "analytics_svc"

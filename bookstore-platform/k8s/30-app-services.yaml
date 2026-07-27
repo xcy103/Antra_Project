@@ -1,0 +1,291 @@
+# Backend services. All identical apart from name/image: they listen on 8080,
+# take config+secrets via envFrom, and wire liveness/readiness probes to Actuator.
+# Images are built from the repo Dockerfile and loaded into the cluster
+# (see k8s/README.md); imagePullPolicy IfNotPresent uses the local image.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-server
+  namespace: bookstore
+  labels: { app: config-server }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: config-server } }
+  template:
+    metadata:
+      labels: { app: config-server }
+    spec:
+      containers:
+        - name: config-server
+          image: bookstore/config-server:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: platform-config }
+            - secretRef: { name: platform-secrets }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 45
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 320Mi }
+            limits: { cpu: "500m", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: config-server, namespace: bookstore }
+spec:
+  selector: { app: config-server }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: bookstore
+  labels: { app: user-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: user-service } }
+  template:
+    metadata:
+      labels: { app: user-service }
+    spec:
+      containers:
+        - name: user-service
+          image: bookstore/user-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: platform-config }
+            - secretRef: { name: platform-secrets }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 45
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 320Mi }
+            limits: { cpu: "500m", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: user-service, namespace: bookstore }
+spec:
+  selector: { app: user-service }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: book-service
+  namespace: bookstore
+  labels: { app: book-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: book-service } }
+  template:
+    metadata:
+      labels: { app: book-service }
+    spec:
+      containers:
+        - name: book-service
+          image: bookstore/book-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: platform-config }
+            - secretRef: { name: platform-secrets }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 45
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 320Mi }
+            limits: { cpu: "500m", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: book-service, namespace: bookstore }
+spec:
+  selector: { app: book-service }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: bookstore
+  labels: { app: order-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: order-service } }
+  template:
+    metadata:
+      labels: { app: order-service }
+    spec:
+      containers:
+        - name: order-service
+          image: bookstore/order-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: platform-config }
+            - secretRef: { name: platform-secrets }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 45
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 320Mi }
+            limits: { cpu: "500m", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: order-service, namespace: bookstore }
+spec:
+  selector: { app: order-service }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: bookstore
+  labels: { app: payment-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: payment-service } }
+  template:
+    metadata:
+      labels: { app: payment-service }
+    spec:
+      containers:
+        - name: payment-service
+          image: bookstore/payment-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: platform-config }
+            - secretRef: { name: platform-secrets }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 45
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 320Mi }
+            limits: { cpu: "500m", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: payment-service, namespace: bookstore }
+spec:
+  selector: { app: payment-service }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: bookstore
+  labels: { app: notification-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: notification-service } }
+  template:
+    metadata:
+      labels: { app: notification-service }
+    spec:
+      containers:
+        - name: notification-service
+          image: bookstore/notification-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: platform-config }
+            - secretRef: { name: platform-secrets }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 45
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 320Mi }
+            limits: { cpu: "500m", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: notification-service, namespace: bookstore }
+spec:
+  selector: { app: notification-service }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: bookstore
+  labels: { app: analytics-service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: analytics-service } }
+  template:
+    metadata:
+      labels: { app: analytics-service }
+    spec:
+      containers:
+        - name: analytics-service
+          image: bookstore/analytics-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: platform-config }
+            - secretRef: { name: platform-secrets }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 45
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 320Mi }
+            limits: { cpu: "500m", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: analytics-service, namespace: bookstore }
+spec:
+  selector: { app: analytics-service }
+  ports: [{ port: 8080, targetPort: 8080 }]
