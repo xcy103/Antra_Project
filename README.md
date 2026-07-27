@@ -50,17 +50,27 @@ that evolution.** Each phase is tagged (`phase-1`, `phase-2`, …).
 | [`CLAUDE.md`](CLAUDE.md) | Development rules and hard boundaries for this repo |
 | [`docs/00-project-overview.md`](docs/00-project-overview.md) | Annotated requirement walkthrough |
 | [`docs/01-ROADMAP.md`](docs/01-ROADMAP.md) | Phase-by-phase plan with a Definition of Done for each |
+| [`docs/02-DESIGN.md`](docs/02-DESIGN.md) | Architecture & design decisions |
+| [`docs/03-ARCHITECTURE.md`](docs/03-ARCHITECTURE.md) | Full-picture diagrams (system, order→payment, CI/CD → K8s) |
+| [`docs/MONITORING.md`](docs/MONITORING.md) | Metrics per service + alert thresholds |
+| [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) | Known limitations and what I'd do next |
+| [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md) | Recordable walkthrough for the demo video |
+| [`docs/BUGLOG.md`](docs/BUGLOG.md) | Notable bugs and how they were solved (STAR) |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | Running progress log |
 | [`docs/BACKLOG.md`](docs/BACKLOG.md) | Deferred items and stretch goals |
+| [`frontend/`](frontend/) | Build-free React demo client for the documented API |
 
 ## Status
 
-Phase 10 complete: eight services under [`bookstore-platform/`](bookstore-platform/) (user, book,
-order, payment, config-server, notification, analytics, api-gateway) + a shared `common` library and a
-`cover-image-lambda`. Event-driven via Kafka, fronted by a Spring Cloud Gateway, config from Spring
-Cloud Config, AWS (S3/Lambda/DynamoDB/SNS) for covers + browsing history, and now fully containerized:
-a one-command `docker compose` stack and `k8s/` manifests. The Phase 1–4 monolith lives in history
-under the `phase-1`…`phase-4` tags. See `docs/PROGRESS.md` and `docs/02-DESIGN.md`.
+Phases 0–11 complete (Phase 12 deliverables in progress): eight services under
+[`bookstore-platform/`](bookstore-platform/) (user, book, order, payment, config-server, notification,
+analytics, api-gateway) + a shared `common` library and a `cover-image-lambda`. Event-driven via Kafka,
+fronted by a Spring Cloud Gateway, config from Spring Cloud Config, AWS (S3/Lambda/DynamoDB/SNS) for
+covers + browsing history, fully containerized (one-command `docker compose` stack + `k8s/` manifests),
+with a **GitHub Actions** pipeline (test → build+push images to GHCR → gated deploy) and Micrometer/
+Prometheus metrics on every service. A build-free React demo client lives in [`frontend/`](frontend/).
+The Phase 1–4 monolith lives in history under the `phase-1`…`phase-4` tags. See `docs/PROGRESS.md`,
+`docs/02-DESIGN.md`, and `docs/03-ARCHITECTURE.md`.
 
 ## Local Development
 

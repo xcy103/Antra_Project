@@ -7,19 +7,19 @@
 
 | Phase | Doc step | Status |
 |---|---|---|
-| 0 | Environment & repo bootstrap | ⬜ Not started |
-| 1 | Step 1 Monolith skeleton + AOP | ⬜ |
-| 2 | Step 2 Data layer | ⬜ |
-| 3 | Step 3 Auth & security | ⬜ |
-| 4 | Step 4 Testing suite | ⬜ |
-| 5 | Step 5 Split into microservices | ⬜ |
-| 6 | Step 6 Config center | ⬜ |
-| 7 | Step 7 Kafka | ⬜ |
-| 8 | Step 8 API Gateway | ⬜ |
-| 9 | Step 9 AWS S3/Lambda/DynamoDB | ⬜ |
-| 10 | Step 10 Containerization & K8s | ⬜ |
-| 11 | Step 11 CI/CD & monitoring | ⬜ |
-| 12 | Deliverables (video/architecture diagram/improvement notes/frontend) | ⬜ |
+| 0 | Environment & repo bootstrap | ✅ `phase-0` |
+| 1 | Step 1 Monolith skeleton + AOP | ✅ `phase-1` |
+| 2 | Step 2 Data layer | ✅ `phase-2` |
+| 3 | Step 3 Auth & security | ✅ `phase-3` |
+| 4 | Step 4 Testing suite | ✅ `phase-4` |
+| 5 | Step 5 Split into microservices | ✅ `phase-5` |
+| 6 | Step 6 Config center | ✅ `phase-6` |
+| 7 | Step 7 Kafka | ✅ `phase-7` |
+| 8 | Step 8 API Gateway | ✅ `phase-8` |
+| 9 | Step 9 AWS S3/Lambda/DynamoDB | ✅ `phase-9` |
+| 10 | Step 10 Containerization & K8s | ✅ `phase-10` |
+| 11 | Step 11 CI/CD & monitoring | ✅ `phase-11` |
+| 12 | Deliverables (video/architecture diagram/improvement notes/frontend) | 🚧 In progress |
 
 ---
 
@@ -175,8 +175,8 @@
 
 ## Phase 12 — Deliverables
 
-- [ ] Architecture diagram (full picture incl. frontend/backend/database/AWS/K8s)
-- [ ] AI-generated React frontend calling the documented API
-- [ ] Demo video
-- [ ] "What still needs improvement" write-up
-- [ ] Check that the git log clearly reflects the step-by-step evolution
+- [x] Architecture diagram (full picture incl. frontend/backend/database/AWS/K8s) — `docs/03-ARCHITECTURE.md`
+- [x] AI-generated React frontend calling the documented API — `frontend/index.html`
+- [ ] Demo video — script ready (`docs/DEMO-SCRIPT.md`); recording is a manual step
+- [x] "What still needs improvement" write-up — `docs/IMPROVEMENTS.md`
+- [x] Check that the git log clearly reflects the step-by-step evolution — 12 tags `phase-0 … phase-11`, small typed commits
