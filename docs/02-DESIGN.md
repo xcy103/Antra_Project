@@ -471,3 +471,32 @@ single-node Kafka, and all eight services. Key points:
 This maps back to the Phase-6 note: in k8s the config-server/config-repo is replaced by the ConfigMap
 (non-secret) and Secret (credentials) — the app reads both through the same `${ENV}` placeholders, so
 no code changes.
+
+---
+
+## Phase 11 — CI/CD & monitoring
+
+### Pipeline (`.github/workflows/ci.yml`)
+
+On every push/PR to `main`:
+1. **build-and-test** — `mvn clean verify` on an Ubuntu runner. Testcontainers works **natively** here
+   (real Linux Docker), so the same suite that needed Colima locally just runs. A failing test fails
+   this job → the pipeline goes **red** (verified: temporarily disabling the duplicate-ISBN check turned
+   `createBook_duplicateIsbn_throwsDuplicate` red, then reverted).
+2. **build-and-push-images** (push to main only, after tests pass) — a matrix builds one image per
+   service from the shared Dockerfile and pushes to **GHCR** tagged by the commit SHA (+ `latest`).
+3. **deploy** — gated behind a GitHub **Environment (`production`) with required reviewers** (manual
+   approval); the step runs `kubectl apply` + `set image` when a `KUBE_CONFIG` secret is present, else
+   prints the rollout it would perform.
+
+Images are tagged by SHA so a deploy is an immutable, traceable artifact and rollbacks are a
+`set image` to a previous SHA.
+
+### Monitoring
+
+Every service exposes **`/actuator/prometheus`** (Micrometer added to common + config-server +
+gateway; exposure centralized in the config-repo). A Prometheus server scrapes each pod. Metrics that
+matter and their alert thresholds — the four golden signals (QPS, error rate, p99, saturation) plus
+per-service specifics (HikariCP DB pool, Resilience4j circuit-breaker state, Kafka consumer lag) — are
+defined in **`docs/MONITORING.md`**. `/actuator/health` drives the k8s probes; the metric alerts catch
+the "UP but unhealthy" cases (bad latency/error rate) that health can't.

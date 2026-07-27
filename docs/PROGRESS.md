@@ -124,3 +124,10 @@
 - Not containerized: `common` (library) and `cover-image-lambda` (deployed to AWS Lambda, not a service).
 - Boundary: no CI/CD yet (Phase 11).
 - Next step: Phase 11 (CI/CD with GitHub Actions + monitoring), **after manual confirmation**
+
+## 2026-07-27 — Phase 11: CI/CD & monitoring
+
+- **GitHub Actions** (`.github/workflows/ci.yml`): (1) `build-and-test` runs `mvn clean verify` on Ubuntu — Testcontainers runs natively there (no Colima/Ryuk workarounds needed); a failing test makes the pipeline red. (2) `build-and-push-images` — matrix builds one image per service from the shared Dockerfile and pushes to GHCR tagged by commit SHA (+ latest), only after tests pass. (3) `deploy` — gated behind a `production` GitHub Environment (manual approval); runs `kubectl apply`/`set image` when `KUBE_CONFIG` is set.
+- **DoD verified**: temporarily disabled the duplicate-ISBN check → `BookServiceImplTest.createBook_duplicateIsbn_throwsDuplicate` went red (`mvn` BUILD FAILURE, i.e. the pipeline would be red); reverted → green, no markers left.
+- **Monitoring**: Micrometer + `/actuator/prometheus` exposed on all services (dependency added to common + config-server + gateway; exposure centralized in config-repo). `docs/MONITORING.md` defines per-service metrics (QPS, error rate, p99, HikariCP pool, Resilience4j circuit-breaker state, Kafka consumer lag) and alert thresholds; verified config-server + gateway still boot with the Prometheus registry.
+- Next step: Phase 12 (deliverables — architecture diagram, AI-generated frontend, demo video, improvement notes), **after manual confirmation**
