@@ -19,9 +19,12 @@ hardening, so several deliberate shortcuts are called out here.
 
 ## Data & transactions
 
-- **No distributed transaction / saga.** Order → payment is two independent local transactions. If
-  payment never happens, the order sits `PENDING` forever with stock effectively reserved. **Next:** a
-  saga (orchestrated or choreographed) with compensating actions, plus an order-expiry/timeout job.
+- **No full saga (happy path only).** The happy path is wired: paying publishes `PaymentCompleted`,
+  which order-service consumes to move the order `PENDING → PAID` (idempotent, via a `processed_event`
+  ledger). But there's no *compensation* — if payment never happens the order sits `PENDING` forever
+  with stock effectively reserved, and a failed/refunded payment doesn't roll the order back.
+  **Next:** an order-expiry/timeout job and compensating actions (release stock, cancel), i.e. a proper
+  orchestrated or choreographed saga.
 - **Stock check is read-then-write across services.** `order-service` reads stock from `book-service`
   then persists; two concurrent orders can both pass the check. Optimistic locking protects a single
   book row, but not the cross-service reserve. **Next:** a real reservation step (reserve → confirm →

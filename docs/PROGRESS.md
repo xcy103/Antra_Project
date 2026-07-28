@@ -2,6 +2,23 @@
 
 > Append one entry per completed Phase. Format: date / Phase / what was done / what's left / next step.
 
+## 2026-07-27 — Post-Phase-12 fix: paid orders stay PENDING (order-service now consumes PaymentCompleted)
+
+- **Symptom (found while using the demo):** paying an order returned success, but the order stayed
+  `PENDING`. Root cause: nothing ever called `setStatus(PAID)` — payment-service publishes
+  `PaymentCompleted`, but order-service had no consumer for it (order-service was a Kafka producer only).
+- **Fix (event-driven, mirrors notification/analytics):** order-service now has its own consumer group
+  and a `PaymentEventConsumer` → `PaymentEventHandler` that moves a `PENDING` order to `PAID`
+  **idempotently** via a `processed_event` ledger (new `V2__processed_event.sql`). Non-PENDING orders
+  are left untouched; unknown orders just record the event. Consumer YAML added; the Postgres-only
+  IT disables listener auto-start (no broker there); unit test `PaymentEventHandlerTest` covers
+  paid / duplicate / unknown / non-pending.
+- **Frontend:** payment is eventually consistent (the status flips once the event is consumed), so the
+  client re-fetches orders shortly after paying instead of expecting an instant flip.
+- **Docs:** `IMPROVEMENTS.md` refined — happy-path status sync now exists; the remaining gap is
+  compensation/timeout (a full saga). Recorded in `BUGLOG.md`.
+- Pending local `mvn clean verify` + `docker compose up --build` to confirm.
+
 ## 2026-07-24 — Phase -1: Planning
 
 - Finished reading `capstone-project.docx`; produced `00-project-overview.md`, `CLAUDE.md`, `01-ROADMAP.md`

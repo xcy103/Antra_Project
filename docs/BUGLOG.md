@@ -9,6 +9,41 @@ mismatches — those aren't worth an entry.
 
 ---
 
+## 2026-07-27 — Paid orders stayed PENDING: the event was published but never consumed (post-Phase-12)
+
+**Situation.** Using the demo: paying an order returned `SUCCESS`, but the order's status stayed
+`PENDING`. From the UI it looked like payment did nothing.
+
+**Task.** Find why a successful payment never advanced the order, and close the loop without breaking
+the services' decoupling.
+
+**Action.**
+1. Traced the write path. `payment-service` persists the `Payment` and publishes a
+   `PaymentCompletedEvent` (carrying `orderId` + a stable `eventId`). Grepped order-service:
+   `setStatus(OrderStatus.PAID)` was **never called anywhere**, and there was **no `@KafkaListener`**
+   — order-service was a Kafka *producer* only. So nothing ever moved the order to `PAID`; it could
+   only go `PENDING → CANCELLED` (on cancel).
+2. This is a *missing consumer*, not a race. The event existed; no one acted on it. `notification`
+   and `analytics` consume events, but neither owns the order, so neither should change its status —
+   **order-service owns the order**, so the transition belongs there.
+3. Added an idempotent consumer in order-service mirroring the existing pattern: a `processed_event`
+   ledger keyed by `eventId` (`V2__processed_event.sql`), a `PaymentEventConsumer` on its **own
+   consumer group** (so it receives payment events independently of notification/analytics), and a
+   `@Transactional` `PaymentEventHandler` that moves a `PENDING` order to `PAID`, leaves non-PENDING
+   orders untouched, and records the event so at-least-once redelivery is safe.
+4. Kept the integration test green: it runs without a broker, so the IT base sets
+   `spring.kafka.listener.auto-startup=false` (the consumer is unit-tested directly instead). The
+   frontend was made to re-fetch orders shortly after paying, because the flip is now **eventually
+   consistent** (it happens when the event is consumed, not in the payment response).
+
+**Result.** Paying an order now advances it to `PAID` end to end, and it's idempotent under
+redelivery. **Lesson:** publishing an event is only half a feature — something has to *consume* it.
+"Payment succeeded" (a local transaction in payment-service) is not the same as "the order is paid"
+(state owned by order-service); wiring the two is a deliberate consumer, and cross-service state
+changes are eventually consistent, which the UI has to expect. Pending local `mvn clean verify`.
+
+---
+
 ## 2026-07-27 — Green locally, red on CI: committed test data leaks across classes via the singleton container (Phase 11/12)
 
 **Situation.** The first real GitHub Actions run of the pipeline went **red**, even though
