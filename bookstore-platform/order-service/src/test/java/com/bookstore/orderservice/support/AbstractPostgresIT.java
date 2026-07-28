@@ -20,5 +20,8 @@ public abstract class AbstractPostgresIT {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // No Kafka broker in these tests — don't start the @KafkaListener container
+        // (avoids a background reconnect loop). The consumer is unit-tested directly.
+        registry.add("spring.kafka.listener.auto-startup", () -> "false");
     }
 }
