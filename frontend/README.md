@@ -4,9 +4,10 @@ A single-file demo frontend for the Bookstore microservices platform. It talks *
 API Gateway (`http://localhost:8080` by default), which routes to the user / book / order / payment
 services and enforces JWT auth at the edge.
 
-It is intentionally build-free: [`index.html`](index.html) loads React + Babel from a CDN and
-transpiles the JSX in the browser. This keeps the capstone's focus on the backend while still giving
-a real UI that exercises the documented API end to end.
+It is a single self-contained file with **zero dependencies**: [`index.html`](index.html) is plain
+HTML/CSS/JS — no build step and no external scripts — so it runs by just opening the file, offline,
+with no network beyond the API itself. This keeps the capstone's focus on the backend while still
+giving a real UI that exercises the documented API end to end.
 
 ## What it demonstrates
 

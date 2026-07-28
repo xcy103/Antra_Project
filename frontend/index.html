@@ -5,15 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bookstore — Capstone Client</title>
   <!--
-    Single-file React client for the Bookstore microservices platform.
-    No build step: React + Babel are loaded from a CDN and JSX is transpiled
-    in the browser. It talks only to the API Gateway (default http://localhost:8080),
-    which routes to user / book / order / payment services and enforces JWT auth.
+    Single-file demo client for the Bookstore microservices platform.
+    Zero dependencies: plain HTML/CSS/JS, no build step and no external scripts,
+    so it runs by just opening this file (file://) with no network beyond the API.
+    It talks only to the API Gateway (default http://localhost:8080), which routes
+    to user / book / order / payment services and enforces JWT auth.
     See frontend/README.md for how to run it.
   -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     :root {
       --bg: #0f1420; --panel: #1a2233; --panel2: #222c42; --border: #2c3852;
@@ -29,6 +27,7 @@
     header {
       display: flex; align-items: center; gap: 16px; padding: 14px 24px;
       background: var(--panel); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5;
+      flex-wrap: wrap;
     }
     header h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
     header .who { margin-left: auto; color: var(--muted); font-size: 13px; }
@@ -37,6 +36,7 @@
     main { max-width: 1100px; margin: 0 auto; padding: 24px; display: grid; gap: 24px; }
     .grid2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; align-items: start; }
     @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } }
+    .col { display: grid; gap: 24px; }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
     .card h2 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
     label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
@@ -55,6 +55,7 @@
     button.danger { background: var(--danger); }
     button:disabled { opacity: .5; cursor: not-allowed; }
     .row { display: flex; gap: 10px; align-items: center; }
+    .between { justify-content: space-between; }
     .tabs { display: flex; gap: 8px; margin-bottom: 4px; }
     .tabs button { background: transparent; color: var(--muted); border: 1px solid transparent; }
     .tabs button.active { color: var(--text); border-color: var(--border); background: var(--panel); }
@@ -77,313 +78,312 @@
     .muted { color: var(--muted); }
     .empty { color: var(--muted); font-style: italic; padding: 10px 0; }
     code { background: var(--panel2); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+    .qty { display: flex; gap: 4px; align-items: center; }
+    .qty span { min-width: 16px; text-align: center; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <header>
+    <h1>📚 Bookstore</h1>
+    <div class="gw">gateway <input id="gw" /></div>
+    <div class="who" id="who"></div>
+  </header>
+  <main>
+    <div class="grid2">
+      <div class="col">
+        <section class="card" id="catalog"></section>
+        <section class="card" id="orders" hidden></section>
+      </div>
+      <div class="col">
+        <section class="card" id="account"></section>
+        <section class="card" id="history" hidden></section>
+      </div>
+    </div>
+  </main>
+  <div id="toast" class="toast" hidden></div>
 
-  <script type="text/babel" data-presets="react">
-    const { useState, useEffect, useCallback } = React;
+  <script>
+  (function () {
+    "use strict";
 
-    // ---- API layer -----------------------------------------------------------
-    // Everything goes through the API Gateway. Persist the base URL + token so a
-    // page reload keeps you logged in (mirrors a real SPA).
-    const store = {
+    // ---- persistent state ----------------------------------------------------
+    var store = {
       get gateway() { return localStorage.getItem("gw") || "http://localhost:8080"; },
       set gateway(v) { localStorage.setItem("gw", v); },
       get token() { return localStorage.getItem("jwt") || ""; },
       set token(v) { v ? localStorage.setItem("jwt", v) : localStorage.removeItem("jwt"); },
       get username() { return localStorage.getItem("username") || ""; },
-      set username(v) { v ? localStorage.setItem("username", v) : localStorage.removeItem("username"); },
+      set username(v) { v ? localStorage.setItem("username", v) : localStorage.removeItem("username"); }
     };
 
-    async function api(path, { method = "GET", body, auth = true } = {}) {
-      const headers = { "Content-Type": "application/json" };
-      if (auth && store.token) headers["Authorization"] = "Bearer " + store.token;
-      const res = await fetch(store.gateway + path, {
-        method, headers, body: body ? JSON.stringify(body) : undefined,
+    var state = { books: [], cart: {}, orders: [], history: [], authMode: "login" };
+
+    // ---- helpers -------------------------------------------------------------
+    function el(id) { return document.getElementById(id); }
+    function money(n) { return "$" + Number(n).toFixed(2); }
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
       });
-      const text = await res.text();
-      const data = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
+    }
+    var toastTimer;
+    function notify(kind, msg) {
+      var t = el("toast");
+      t.className = "toast " + kind; t.textContent = msg; t.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+    }
+
+    async function api(path, opts) {
+      opts = opts || {};
+      var headers = { "Content-Type": "application/json" };
+      if (opts.auth !== false && store.token) headers["Authorization"] = "Bearer " + store.token;
+      var res, text;
+      try {
+        res = await fetch(store.gateway + path, {
+          method: opts.method || "GET", headers: headers,
+          body: opts.body ? JSON.stringify(opts.body) : undefined
+        });
+      } catch (e) {
+        throw new Error("Cannot reach the gateway at " + store.gateway + " — is the stack up?");
+      }
+      text = await res.text();
+      var data = null;
+      if (text) { try { data = JSON.parse(text); } catch (e) { data = text; } }
       if (!res.ok) {
-        const msg = (data && data.message) || (typeof data === "string" && data) || (res.status + " " + res.statusText);
+        var msg = (data && data.message) || (typeof data === "string" && data) || (res.status + " " + res.statusText);
         throw new Error(msg);
       }
       return data;
     }
 
-    // ---- Small helpers -------------------------------------------------------
-    const money = (n) => "$" + Number(n).toFixed(2);
-    function Pill({ value }) { return <span className={"pill " + value}>{value}</span>; }
-
-    // ---- Auth panel ----------------------------------------------------------
-    function AuthPanel({ onAuthed, notify }) {
-      const [mode, setMode] = useState("login");
-      const [f, setF] = useState({ username: "", email: "", password: "" });
-      const [busy, setBusy] = useState(false);
-      const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-
-      const submit = async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        try {
-          if (mode === "register") {
-            await api("/api/auth/register", { method: "POST", auth: false,
-              body: { username: f.username, email: f.email, password: f.password } });
-            notify("ok", "Registered — logging you in…");
-          }
-          const res = await api("/api/auth/login", { method: "POST", auth: false,
-            body: { username: f.username, password: f.password } });
-          store.token = res.token;
-          store.username = f.username;
-          onAuthed(f.username);
-          notify("ok", "Signed in as " + f.username);
-        } catch (err) {
-          notify("err", err.message);
-        } finally { setBusy(false); }
-      };
-
-      return (
-        <div className="card">
-          <h2>Account</h2>
-          <div className="tabs">
-            <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Log in</button>
-            <button className={mode === "register" ? "active" : ""} onClick={() => setMode("register")}>Register</button>
-          </div>
-          <form onSubmit={submit}>
-            <label>Username</label>
-            <input value={f.username} onChange={set("username")} required autoComplete="username" />
-            {mode === "register" && <>
-              <label>Email</label>
-              <input type="email" value={f.email} onChange={set("email")} required />
-            </>}
-            <label>Password</label>
-            <input type="password" value={f.password} onChange={set("password")} required autoComplete="current-password" />
-            <div style={{ marginTop: 14 }}>
-              <button disabled={busy}>{mode === "register" ? "Create account" : "Log in"}</button>
-            </div>
-          </form>
-          <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
-            New accounts get the <code>USER</code> role. Seed an <code>ADMIN</code> in the DB to manage the catalog.
-          </p>
-        </div>
-      );
+    // ---- header + account ----------------------------------------------------
+    function renderHeader() {
+      el("gw").value = store.gateway;
+      var who = el("who");
+      if (store.username) {
+        who.innerHTML = 'signed in as <strong>' + esc(store.username) + '</strong> · <a href="#" id="logout">log out</a>';
+        el("logout").onclick = function (e) { e.preventDefault(); logout(); };
+      } else {
+        who.textContent = "not signed in";
+      }
     }
 
-    // ---- Catalog + cart ------------------------------------------------------
-    function Catalog({ notify, onOrdered }) {
-      const [books, setBooks] = useState([]);
-      const [cart, setCart] = useState({}); // bookId -> qty
-      const [loading, setLoading] = useState(true);
-
-      const load = useCallback(async () => {
-        setLoading(true);
-        try { setBooks(await api("/api/books", { auth: false })); }
-        catch (err) { notify("err", "Load books: " + err.message); }
-        finally { setLoading(false); }
-      }, [notify]);
-      useEffect(() => { load(); }, [load]);
-
-      const add = (id) => setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
-      const sub = (id) => setCart((c) => {
-        const q = (c[id] || 0) - 1; const n = { ...c };
-        if (q <= 0) delete n[id]; else n[id] = q; return n;
+    function renderAccount() {
+      var box = el("account");
+      if (store.username) {
+        box.innerHTML =
+          '<h2>Session</h2>' +
+          '<p class="muted" style="margin-top:0">JWT is stored in <code>localStorage</code> and sent as a Bearer token on every gateway call.</p>' +
+          '<button class="ghost" id="logout2">Log out</button>';
+        el("logout2").onclick = logout;
+        return;
+      }
+      var m = state.authMode;
+      box.innerHTML =
+        '<h2>Account</h2>' +
+        '<div class="tabs">' +
+          '<button data-mode="login" class="' + (m === "login" ? "active" : "") + '">Log in</button>' +
+          '<button data-mode="register" class="' + (m === "register" ? "active" : "") + '">Register</button>' +
+        '</div>' +
+        '<form id="authForm">' +
+          '<label>Username</label><input name="username" autocomplete="username" required />' +
+          (m === "register" ? '<label>Email</label><input name="email" type="email" required />' : '') +
+          '<label>Password</label><input name="password" type="password" autocomplete="current-password" required />' +
+          '<div style="margin-top:14px"><button type="submit">' + (m === "register" ? "Create account" : "Log in") + '</button></div>' +
+        '</form>' +
+        '<p class="muted" style="font-size:12px;margin-bottom:0">New accounts get the <code>USER</code> role. Promote to <code>ADMIN</code> via the seed script to manage the catalog.</p>';
+      Array.prototype.forEach.call(box.querySelectorAll(".tabs button"), function (b) {
+        b.onclick = function () { state.authMode = b.getAttribute("data-mode"); renderAccount(); };
       });
-      const view = async (id) => {
-        // Fetching a single book records a browsing-history event when authenticated.
-        try { const b = await api("/api/books/" + id, { auth: !!store.token }); notify("ok", "Viewed: " + b.title); }
-        catch (err) { notify("err", err.message); }
-      };
+      el("authForm").onsubmit = onAuthSubmit;
+    }
 
-      const lines = Object.entries(cart).map(([id, qty]) => {
-        const b = books.find((x) => String(x.id) === id); return b ? { b, qty } : null;
+    async function onAuthSubmit(e) {
+      e.preventDefault();
+      var f = e.target, mode = state.authMode;
+      var username = f.username.value.trim(), password = f.password.value;
+      var btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+      try {
+        if (mode === "register") {
+          await api("/api/auth/register", { method: "POST", auth: false,
+            body: { username: username, email: f.email.value.trim(), password: password } });
+          notify("ok", "Registered — logging you in…");
+        }
+        var res = await api("/api/auth/login", { method: "POST", auth: false,
+          body: { username: username, password: password } });
+        store.token = res.token; store.username = username;
+        notify("ok", "Signed in as " + username);
+        await refreshAll();
+      } catch (err) {
+        notify("err", err.message); btn.disabled = false;
+      }
+    }
+
+    function logout() {
+      store.token = ""; store.username = "";
+      state.orders = []; state.history = [];
+      notify("ok", "Signed out");
+      renderAll();
+    }
+
+    // ---- catalog + cart ------------------------------------------------------
+    async function loadBooks() {
+      try { state.books = await api("/api/books", { auth: false }) || []; }
+      catch (err) { notify("err", "Load books: " + err.message); state.books = []; }
+    }
+
+    function renderCatalog() {
+      var box = el("catalog");
+      var lines = cartLines();
+      var total = lines.reduce(function (s, l) { return s + Number(l.b.price) * l.qty; }, 0);
+      var rows = state.books.length === 0
+        ? '<p class="empty">No books. Run scripts/seed-demo.sh to add some.</p>'
+        : state.books.map(function (b) {
+            var inCart = state.cart[b.id] || 0;
+            return '<div class="book">' +
+              '<div><div><strong>' + esc(b.title) + '</strong></div>' +
+              '<div class="meta">' + esc(b.authorName) + ' · ISBN ' + esc(b.isbn) + ' · stock ' + b.stock + '</div></div>' +
+              '<div class="row">' +
+                '<span style="min-width:60px;text-align:right">' + money(b.price) + '</span>' +
+                '<button class="ghost mini" data-act="view" data-id="' + b.id + '">View</button>' +
+                '<div class="qty">' +
+                  '<button class="ghost mini" data-act="sub" data-id="' + b.id + '"' + (inCart ? '' : ' disabled') + '>−</button>' +
+                  '<span>' + inCart + '</span>' +
+                  '<button class="mini" data-act="add" data-id="' + b.id + '"' + (b.stock <= inCart ? ' disabled' : '') + '>+</button>' +
+                '</div>' +
+              '</div></div>';
+          }).join("");
+      box.innerHTML =
+        '<div class="row between"><h2 style="margin:0">Catalog</h2><button class="ghost mini" id="reloadBooks">Refresh</button></div>' +
+        rows +
+        (lines.length ? (
+          '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)" class="row between">' +
+            '<strong>Cart total: ' + money(total) + '</strong>' +
+            '<button id="placeOrder"' + (store.token ? '' : ' disabled') + '>' + (store.token ? "Place order" : "Log in to order") + '</button>' +
+          '</div>'
+        ) : '');
+
+      el("reloadBooks").onclick = async function () { await loadBooks(); renderCatalog(); };
+      Array.prototype.forEach.call(box.querySelectorAll("button[data-act]"), function (b) {
+        b.onclick = function () { onCatalogAction(b.getAttribute("data-act"), Number(b.getAttribute("data-id"))); };
+      });
+      if (el("placeOrder")) el("placeOrder").onclick = placeOrder;
+    }
+
+    function cartLines() {
+      return Object.keys(state.cart).map(function (id) {
+        var b = state.books.filter(function (x) { return String(x.id) === id; })[0];
+        return b ? { b: b, qty: state.cart[id] } : null;
       }).filter(Boolean);
-      const total = lines.reduce((s, { b, qty }) => s + Number(b.price) * qty, 0);
-
-      const placeOrder = async () => {
-        try {
-          const order = await api("/api/orders", { method: "POST",
-            body: { items: lines.map(({ b, qty }) => ({ bookId: b.id, quantity: qty })) } });
-          setCart({});
-          notify("ok", "Order #" + order.id + " placed (" + money(order.totalPrice) + ")");
-          onOrdered();
-          load(); // refresh stock
-        } catch (err) { notify("err", "Place order: " + err.message); }
-      };
-
-      return (
-        <div className="card">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h2 style={{ margin: 0 }}>Catalog</h2>
-            <button className="ghost mini" onClick={load}>Refresh</button>
-          </div>
-          {loading ? <p className="empty">Loading…</p> :
-            books.length === 0 ? <p className="empty">No books. Add some as an admin.</p> :
-            books.map((b) => (
-              <div className="book" key={b.id}>
-                <div>
-                  <div><strong>{b.title}</strong></div>
-                  <div className="meta">{b.authorName} · ISBN {b.isbn} · stock {b.stock}</div>
-                </div>
-                <div className="row">
-                  <span style={{ minWidth: 60, textAlign: "right" }}>{money(b.price)}</span>
-                  <button className="ghost mini" onClick={() => view(b.id)}>View</button>
-                  <div className="row" style={{ gap: 4 }}>
-                    <button className="ghost mini" onClick={() => sub(b.id)} disabled={!cart[b.id]}>−</button>
-                    <span style={{ minWidth: 16, textAlign: "center" }}>{cart[b.id] || 0}</span>
-                    <button className="mini" onClick={() => add(b.id)} disabled={b.stock <= (cart[b.id] || 0)}>+</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          {lines.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <strong>Cart total: {money(total)}</strong>
-                <button onClick={placeOrder} disabled={!store.token}>
-                  {store.token ? "Place order" : "Log in to order"}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      );
     }
 
-    // ---- Orders + payment ----------------------------------------------------
-    function Orders({ notify, refreshKey }) {
-      const [orders, setOrders] = useState([]);
-      const [loading, setLoading] = useState(true);
-
-      const load = useCallback(async () => {
-        if (!store.token) { setOrders([]); setLoading(false); return; }
-        setLoading(true);
-        try { setOrders(await api("/api/orders")); }
-        catch (err) { notify("err", "Load orders: " + err.message); }
-        finally { setLoading(false); }
-      }, [notify]);
-      useEffect(() => { load(); }, [load, refreshKey]);
-
-      const pay = async (o) => {
-        try {
-          const p = await api("/api/payments", { method: "POST",
-            body: { orderId: o.id, amount: o.totalPrice } });
-          notify("ok", "Payment " + p.status + " for order #" + o.id);
-          load();
-        } catch (err) { notify("err", "Payment: " + err.message); }
-      };
-      const cancel = async (o) => {
-        try { await api("/api/orders/" + o.id + "/cancel", { method: "PUT" });
-          notify("ok", "Order #" + o.id + " cancelled"); load(); }
-        catch (err) { notify("err", "Cancel: " + err.message); }
-      };
-
-      if (!store.token) return null;
-      return (
-        <div className="card">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h2 style={{ margin: 0 }}>My orders</h2>
-            <button className="ghost mini" onClick={load}>Refresh</button>
-          </div>
-          {loading ? <p className="empty">Loading…</p> :
-            orders.length === 0 ? <p className="empty">No orders yet.</p> :
-            <table>
-              <thead><tr><th>#</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr></thead>
-              <tbody>
-                {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td>{o.id}</td>
-                    <td className="muted">{o.items.reduce((s, i) => s + i.quantity, 0)} item(s)</td>
-                    <td>{money(o.totalPrice)}</td>
-                    <td><Pill value={o.status} /></td>
-                    <td className="row" style={{ gap: 6, borderBottom: "none" }}>
-                      {o.status === "PENDING" && <>
-                        <button className="mini" onClick={() => pay(o)}>Pay</button>
-                        <button className="ghost mini danger" onClick={() => cancel(o)}>Cancel</button>
-                      </>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>}
-        </div>
-      );
+    async function onCatalogAction(act, id) {
+      if (act === "add") { state.cart[id] = (state.cart[id] || 0) + 1; renderCatalog(); }
+      else if (act === "sub") {
+        var q = (state.cart[id] || 0) - 1;
+        if (q <= 0) delete state.cart[id]; else state.cart[id] = q;
+        renderCatalog();
+      } else if (act === "view") {
+        try { var b = await api("/api/books/" + id, { auth: !!store.token }); notify("ok", "Viewed: " + b.title); loadHistory(); }
+        catch (err) { notify("err", err.message); }
+      }
     }
 
-    // ---- Browsing history ----------------------------------------------------
-    function History({ notify, refreshKey }) {
-      const [rows, setRows] = useState([]);
-      const load = useCallback(async () => {
-        if (!store.token) return;
-        try { setRows(await api("/api/books/me/history")); }
-        catch (err) { /* history is best-effort; DynamoDB may be off locally */ }
-      }, []);
-      useEffect(() => { load(); }, [load, refreshKey]);
-      if (!store.token || rows.length === 0) return null;
-      return (
-        <div className="card">
-          <h2>Recently viewed</h2>
-          {rows.map((r, i) => (
-            <div className="book" key={i}>
-              <div><strong>{r.title || ("Book #" + r.bookId)}</strong></div>
-              <div className="meta">{r.viewedAt || ""}</div>
-            </div>
-          ))}
-        </div>
-      );
+    async function placeOrder() {
+      var lines = cartLines();
+      try {
+        var order = await api("/api/orders", { method: "POST",
+          body: { items: lines.map(function (l) { return { bookId: l.b.id, quantity: l.qty }; }) } });
+        state.cart = {};
+        notify("ok", "Order #" + order.id + " placed (" + money(order.totalPrice) + ")");
+        await loadBooks(); await loadOrders();
+        renderCatalog(); renderOrders();
+      } catch (err) { notify("err", "Place order: " + err.message); }
     }
 
-    // ---- Root ----------------------------------------------------------------
-    function App() {
-      const [user, setUser] = useState(store.username);
-      const [gw, setGw] = useState(store.gateway);
-      const [toast, setToast] = useState(null);
-      const [ordersKey, setOrdersKey] = useState(0);
-
-      const notify = useCallback((kind, msg) => {
-        setToast({ kind, msg });
-        setTimeout(() => setToast(null), 3500);
-      }, []);
-      const bumpOrders = () => setOrdersKey((k) => k + 1);
-
-      const logout = () => { store.token = ""; store.username = ""; setUser(""); notify("ok", "Signed out"); };
-      const saveGw = (v) => { setGw(v); store.gateway = v; };
-
-      return (
-        <>
-          <header>
-            <h1>📚 Bookstore</h1>
-            <div className="gw">
-              gateway <input value={gw} onChange={(e) => saveGw(e.target.value)} />
-            </div>
-            <div className="who">
-              {user ? <span>signed in as <strong>{user}</strong> · <a href="#" onClick={(e) => { e.preventDefault(); logout(); }}>log out</a></span>
-                    : <span>not signed in</span>}
-            </div>
-          </header>
-          <main>
-            <div className="grid2">
-              <div style={{ display: "grid", gap: 24 }}>
-                <Catalog notify={notify} onOrdered={bumpOrders} />
-                <Orders notify={notify} refreshKey={ordersKey} />
-              </div>
-              <div style={{ display: "grid", gap: 24 }}>
-                {!user && <AuthPanel notify={notify} onAuthed={setUser} />}
-                {user && <div className="card">
-                  <h2>Session</h2>
-                  <p className="muted" style={{ marginTop: 0 }}>JWT is stored in <code>localStorage</code> and sent as a Bearer token on every gateway call.</p>
-                  <button className="ghost" onClick={logout}>Log out</button>
-                </div>}
-                <History notify={notify} refreshKey={ordersKey} />
-              </div>
-            </div>
-          </main>
-          {toast && <div className={"toast " + toast.kind}>{toast.msg}</div>}
-        </>
-      );
+    // ---- orders --------------------------------------------------------------
+    async function loadOrders() {
+      if (!store.token) { state.orders = []; return; }
+      try { state.orders = await api("/api/orders") || []; }
+      catch (err) { notify("err", "Load orders: " + err.message); }
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    function renderOrders() {
+      var box = el("orders");
+      if (!store.token) { box.hidden = true; return; }
+      box.hidden = false;
+      var body = state.orders.length === 0
+        ? '<p class="empty">No orders yet.</p>'
+        : '<table><thead><tr><th>#</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>' +
+          state.orders.map(function (o) {
+            var items = o.items.reduce(function (s, i) { return s + i.quantity; }, 0);
+            var actions = o.status === "PENDING"
+              ? '<button class="mini" data-act="pay" data-id="' + o.id + '">Pay</button> ' +
+                '<button class="ghost mini danger" data-act="cancel" data-id="' + o.id + '">Cancel</button>'
+              : '';
+            return '<tr><td>' + o.id + '</td><td class="muted">' + items + ' item(s)</td><td>' + money(o.totalPrice) +
+              '</td><td><span class="pill ' + esc(o.status) + '">' + esc(o.status) + '</span></td><td>' + actions + '</td></tr>';
+          }).join("") + '</tbody></table>';
+      box.innerHTML = '<div class="row between"><h2 style="margin:0">My orders</h2><button class="ghost mini" id="reloadOrders">Refresh</button></div>' + body;
+      el("reloadOrders").onclick = async function () { await loadOrders(); renderOrders(); };
+      Array.prototype.forEach.call(box.querySelectorAll("button[data-act]"), function (b) {
+        b.onclick = function () { onOrderAction(b.getAttribute("data-act"), Number(b.getAttribute("data-id"))); };
+      });
+    }
+
+    async function onOrderAction(act, id) {
+      var order = state.orders.filter(function (o) { return o.id === id; })[0];
+      try {
+        if (act === "pay") {
+          var p = await api("/api/payments", { method: "POST", body: { orderId: id, amount: order.totalPrice } });
+          notify("ok", "Payment " + p.status + " for order #" + id + " — status updates shortly");
+          // The order transitions PENDING -> PAID asynchronously: order-service
+          // consumes the PaymentCompleted Kafka event. Re-fetch a couple of times
+          // so the new status shows without a manual refresh.
+          setTimeout(async function () { await loadOrders(); renderOrders(); }, 1500);
+          setTimeout(async function () { await loadOrders(); renderOrders(); }, 4000);
+        } else if (act === "cancel") {
+          await api("/api/orders/" + id + "/cancel", { method: "PUT" });
+          notify("ok", "Order #" + id + " cancelled");
+        }
+        await loadOrders(); renderOrders();
+      } catch (err) { notify("err", (act === "pay" ? "Payment: " : "Cancel: ") + err.message); }
+    }
+
+    // ---- browsing history (best-effort; needs the DynamoDB feature) -----------
+    async function loadHistory() {
+      if (!store.token) { state.history = []; renderHistory(); return; }
+      try { state.history = await api("/api/books/me/history") || []; } catch (e) { state.history = []; }
+      renderHistory();
+    }
+
+    function renderHistory() {
+      var box = el("history");
+      if (!store.token || state.history.length === 0) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML = '<h2>Recently viewed</h2>' + state.history.map(function (r) {
+        return '<div class="book"><div><strong>' + esc(r.title || ("Book #" + r.bookId)) + '</strong></div>' +
+          '<div class="meta">' + esc(r.viewedAt || "") + '</div></div>';
+      }).join("");
+    }
+
+    // ---- orchestration -------------------------------------------------------
+    function renderAll() {
+      renderHeader(); renderAccount(); renderCatalog(); renderOrders(); renderHistory();
+    }
+    async function refreshAll() {
+      await Promise.all([loadBooks(), loadOrders(), loadHistory()]);
+      renderAll();
+    }
+
+    el("gw").addEventListener("change", function () {
+      store.gateway = el("gw").value.trim() || "http://localhost:8080"; refreshAll();
+    });
+
+    renderAll();      // paint immediately so the page is never blank
+    refreshAll();     // then load data from the gateway
+  })();
   </script>
 </body>
 </html>
